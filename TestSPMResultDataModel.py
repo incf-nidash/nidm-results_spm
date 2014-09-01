@@ -16,9 +16,16 @@ from subprocess import call
 import re
 import rdflib
 from rdflib.graph import Graph
+
+import sys
+path = "./nidm/nidm/nidm-results/test"
+sys.path.append(path)
+
 from TestResultDataModel import TestResultDataModel
 from TestCommons import *
 from CheckConsistency import *
+
+RELPATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # FIXME: Extend tests to more than one dataset (group analysis, ...)
 '''Tests based on the analysis of single-subject auditory data based on test01_spm_batch.m using SPM12b r5918.
@@ -46,9 +53,7 @@ class TestSPMResultsDataModel(unittest.TestCase, TestResultDataModel):
         self.spmexport.parse(self.spm_export_ttl, format='turtle')
 
         # Retreive owl file for NIDM-Results
-        # self.owl_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-        #     'nidm-results.owl')
-        self.owl_file = urllib2.urlopen("https://raw.githubusercontent.com/incf-nidash/nidm/master/nidm/nidm-results/nidm-results.owl")
+        self.owl_file = os.path.join(RELPATH, 'nidm-results_spm', 'nidm', 'nidm', 'nidm-results', 'nidm-results.owl')
 
     def test01_class_consistency_with_owl(self):
         my_exception = check_class_names(self.spmexport, "SPM example001", owl_file=self.owl_file)
@@ -78,8 +83,8 @@ class TestSPMResultsDataModel(unittest.TestCase, TestResultDataModel):
     # FIXME: If terms PR is accepted then these tests should be moved to TestResultDataModel.py
     def test03_ex1_auditory_singlesub_full_graph(self):
         #  Turtle file of ground truth (manually computed) RDF
-        ground_truth_ttl = get_turtle("https://raw.githubusercontent.com/incf-nidash/nidm/master/nidm/nidm-results/spm/example001/example001_spm_results.provn")
-        # ground_truth_ttl = os.path.join(self.ground_truth_dir, 'example001_spm_results.ttl');
+        ground_truth_provn = os.path.join(self.ground_truth_dir, 'example001_spm_results.provn');
+        ground_truth_ttl = get_turtle(ground_truth_provn)
 
         # print "\n\nwith: "+ground_truth_ttl
 

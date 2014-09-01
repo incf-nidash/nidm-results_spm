@@ -46,8 +46,7 @@ def get_turtle(provn_file):
     else:
         # Open corresponding provn file
         logger.info(' Converting '+provn_file)
-        # provn_file = open(provn_file, 'r')
-        provn_file = urllib2.urlopen(provn_file)
+        provn_file = open(provn_file, 'r')
         ex_provn = provn_file.read()
 
         # Convert to turtle using Prov Translator APIs
