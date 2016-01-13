@@ -5,6 +5,7 @@ function nidm_export_all(path_to, out_path)
 
     spm('defaults','fmri');
     spm_jobman('initcfg');
+    spm_get_defaults('cmdline',true);
 
     files = dir(path_to);
     subdirs = files([files.isdir]);
