@@ -342,7 +342,7 @@ pp.add_namespace('nidm','http://purl.org/nidash/nidm#');
 pp.add_namespace('niiri','http://iri.nidash.org/');
 pp.add_namespace('spm','http://purl.org/nidash/spm#');
 pp.add_namespace('neurolex','http://neurolex.org/wiki/');
-pp.add_namespace('crypto','http://id.loc.gov/vocabulary/preservation/cryptographicHashFunctions#');
+pp.add_namespace('crypto','http://id.loc.gov/vocabulary/preservation/cryptographicHashFunctions/');
 pp.add_namespace('dct','http://purl.org/dc/terms/');
 pp.add_namespace('nfo','http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#');
 pp.add_namespace('dc','http://purl.org/dc/elements/1.1/');
