@@ -453,7 +453,7 @@ if STAT == 'T', STAT = lower(STAT); end
 contrast_names = cell(1,numel(xSPM.Ic));
 
 for c=1:numel(xSPM.Ic)
-    con_name = nidm_esc(SPM.xCon(xSPM.Ic(c)).name);
+    con_name = SPM.xCon(xSPM.Ic(c)).name;
     contrast_names{c} = con_name;
     if xSPM.STAT == 'T'
         NIDM.Contrasts(c) = struct(...
@@ -666,7 +666,7 @@ for i=1:numel(idx)
             nidm_peaks(k).Peak_value = TabDat.dat{j,9};
             nidm_peaks(k).Coordinate_coordinateVector = TabDat.dat{j,12}(1:3);
             nidm_peaks(k).Peak_pValueUncorrected = TabDat.dat{j,11};
-            nidm_peaks(k).Peak_equivalentZStatistic = xsdfloat(TabDat.dat{j,10});
+            nidm_peaks(k).Peak_equivalentZStatistic = TabDat.dat{j,10};
             nidm_peaks(k).Peak_pValueFWER = TabDat.dat{j,7};
             nidm_peaks(k).Peak_qValueFDR = TabDat.dat{j,8};
             k = k + 1;
@@ -690,16 +690,6 @@ end
 %-And delete files from the temporary directory
 %--------------------------------------------------------------------------
 rmdir(outdir,'s');
-
-
-%==========================================================================
-% function v = xsdfloat(v)
-%==========================================================================
-function v = xsdfloat(v)
-% See http://books.xmlschemata.org/relaxng/ch19-77095.html
-if numel(v) == 1 && isinf(v) && v > 0, v = 'INF';  end
-if numel(v) == 1 && isinf(v) && v < 0, v = '-INF'; end
-if numel(v) == 1 && isnan(v),          v = 'NaN';  end
 
 
 %==========================================================================
@@ -768,13 +758,6 @@ if gz
     gzip(R.fname);
     spm_unlink(R.fname);
 end
-
-
-%==========================================================================
-% function S = nidm_esc(S)
-%==========================================================================
-function S = nidm_esc(S)
-S = strrep(S, sprintf('\n'), '\n');
 
 
 %==========================================================================

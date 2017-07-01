@@ -1,8 +1,8 @@
-function [nidmfile, prov] = spm_nidmresults(nidm_json, direc)
+function [nidmfile, prov] = spm_nidmresults(NIDM, outdir)
 % Export SPM stats results using the Neuroimaging Data Model (NIDM)
-% FORMAT [nidmfile, prov] = spm_results_nidm(nidm_json)
-% nidm_json- json structure containing NIDM details
-% direc    - root directory for image files
+% FORMAT [nidmfile, prov] = spm_results_nidm(NIDM, outdir)
+% NIDM     - NIDM minimal JSON structure
+% outdir   - output directory
 %
 % nidmfile - output NIDM zip archive filename
 % prov     - provenance object (see spm_provenance.m)
@@ -27,20 +27,20 @@ function [nidmfile, prov] = spm_nidmresults(nidm_json, direc)
 %--------------------------------------------------------------------------
 gz           = '.gz';                        %-Compressed NIfTI {'.gz', ''}
 
-spm_jsonwrite('nidm_minimal.json', nidm_json, struct('indent','    '));
-
 %==========================================================================
 %-Populate output directory
 %==========================================================================
-if ~exist(direc,'dir'), direc = pwd; end
-outdir       = tempname(direc);
+if nargin < 2, outdir = pwd; end
+outdir       = tempname(outdir);
 sts          = mkdir(outdir);
 if ~sts, error('Cannot create directory "%s".',outdir); end
 
+% spm_jsonwrite('nidm_minimal.json', NIDM, struct('indent',blanks(4)));
+
 %-Design Matrix image (as png and csv)
 %--------------------------------------------------------------------------
-DesMtxValue = nidm_json.DesignMatrix_value;
-reg_names = nidm_json.DesignMatrix_regressorNames;
+DesMtxValue  = NIDM.DesignMatrix_value;
+reg_names    = NIDM.DesignMatrix_regressorNames;
 
 files.desimg = fullfile(outdir,'DesignMatrix.png');
 
@@ -54,25 +54,25 @@ csvwrite(files.descsv,DesMtxValue);
 
 %-Maximum Intensity Projection image (as png)
 %--------------------------------------------------------------------------
-if isfield(nidm_json, 'Inferences')
-    con_name = nidm_json.Inferences(1).StatisticMap_contrastName;
+if isfield(NIDM, 'Inferences')
+    con_name   = NIDM.Inferences(1).StatisticMap_contrastName;
 
-    inferences = nidm_json.Inferences;
-    if numel(inferences)>1
+    inferences = NIDM.Inferences;
+    if numel(inferences) > 1
         warning('Exporter assumes only one inference is reported.')
     end
     
-    inference = inferences(1);
+    inference  = inferences(1);
 else
-    inferences = nidm_json.ConjunctionInferences;
+    inferences = NIDM.ConjunctionInferences;
     
-    if numel(inferences)>1
+    if numel(inferences) > 1
         warning('Exporter assumes only one inference is reported.')
     end
     
-    inference = inferences(1);
+    inference  = inferences(1);
     
-    con_name = inference.StatisticMap_contrastName;
+    con_name   = inference.StatisticMap_contrastName;
 end
 
 if isfield(inference, 'ExcursionSetMap_hasMaximumIntensityProjection')
@@ -86,8 +86,8 @@ end
 
 %-Beta images (as NIfTI)
 %--------------------------------------------------------------------------
-files.beta_orig = nidm_json.ParameterEstimateMaps;
-regressor_names = nidm_json.DesignMatrix_regressorNames;
+files.beta_orig = NIDM.ParameterEstimateMaps;
+regressor_names = NIDM.DesignMatrix_regressorNames;
 for i=1:numel(regressor_names)
     files.beta{i} = fullfile(outdir,[sprintf('ParameterEstimate_%04d',i) '.nii' gz]);
     img2nii(files.beta_orig{i}, files.beta{i});
@@ -95,7 +95,7 @@ end
 
 %-SPM{.}, contrast, contrast standard error, and contrast explained mean square images (as NIfTI)
 %--------------------------------------------------------------------------
-contrasts = nidm_json.Contrasts;
+contrasts = NIDM.Contrasts;
 
 for i=1:numel(contrasts)
     if iscell(contrasts)
@@ -126,13 +126,13 @@ for i=1:numel(contrasts)
         end
     end
     
-    files.spm{i}  = fullfile(outdir,[stat 'Statistic' postfix '.nii' gz]);
-    stat_map{i} = con.StatisticMap_atLocation;
+    files.spm{i} = fullfile(outdir,[stat 'Statistic' postfix '.nii' gz]);
+    stat_map{i}  = con.StatisticMap_atLocation;
     dof = con.StatisticMap_errorDegreesOfFreedom;
     if stat == 'T'
         info = struct('STAT', 'T', ...
-                  'STATstr', ['T_{' num2str(dof) '}'], ...
-                  'df', [NaN dof]);
+                      'STATstr', ['T_{' num2str(dof) '}'], ...
+                      'df', [NaN dof]);
     elseif stat == 'F'
         info = struct('STAT', 'F', ...
                       'STATstr', ['F_{' num2str(dof) '}'], ...
@@ -170,30 +170,29 @@ img2nii(excset_map, files.tspm);
 %-Residual Mean Squares image (as NIfTI)
 %--------------------------------------------------------------------------
 files.rms = fullfile(outdir,['ResidualMeanSquares.nii' gz]);
-files.rms_orig = nidm_json.ResidualMeanSquaresMap_atLocation;
+files.rms_orig = NIDM.ResidualMeanSquaresMap_atLocation;
 img2nii(files.rms_orig, files.rms);
 
 %-Resels per Voxel image (as NIfTI)
 %--------------------------------------------------------------------------
 has_rpv = false;
-if isfield(nidm_json, 'ReselsPerVoxelMap_atLocation')
+if isfield(NIDM, 'ReselsPerVoxelMap_atLocation')
     has_rpv = true;
-    
     files.rpv = fullfile(outdir,['ReselsPerVoxel.nii' gz]);
-    files.rpv_orig = nidm_json.ReselsPerVoxelMap_atLocation;
+    files.rpv_orig = NIDM.ReselsPerVoxelMap_atLocation;
     img2nii(files.rpv_orig, files.rpv);
 end
 
 %-Analysis mask image (as NIfTI)
 %--------------------------------------------------------------------------
-files.mask_orig = nidm_json.MaskMap_atLocation;
+files.mask_orig = NIDM.MaskMap_atLocation;
 files.mask = fullfile(outdir,['Mask.nii' gz]);
 img2nii(files.mask_orig, files.mask);
 
 %-Grand mean image (as NIfTI)
 %--------------------------------------------------------------------------
 files.grandmean = fullfile(outdir, ['GrandMean.nii' gz]);
-gm_map = nidm_json.GrandMeanMap_atLocation;
+gm_map = NIDM.GrandMeanMap_atLocation;
 img2nii(gm_map, files.grandmean);
 gunzip(files.grandmean)
 gunzip(files.mask)
@@ -203,9 +202,9 @@ spm_unlink(strrep(files.mask, '.gz', ''));
 
 %-Explicit mask image (as NIfTI)
 %--------------------------------------------------------------------------
-if isfield(nidm_json, 'CustomMap_atLocation')
+if isfield(NIDM, 'CustomMap_atLocation')
     files.emask = fullfile(outdir,['CustomMask.nii' gz]);
-    cmask_map = nidm_json.CustomMap_atLocation;
+    cmask_map = NIDM.CustomMap_atLocation;
     img2nii(cmask_map, files.emask);
 end
 
@@ -274,9 +273,9 @@ pp.add_namespace('obo','http://purl.obolibrary.org/obo/');
 
 idResults = getid('niiri:spm_results_id',isHumanReadable);
 
-if isfield(nidm_json, 'NIDMResults_version')
-    NIDMversion = nidm_json.NIDMResults_version;
-    % TODO should check version and say whether we are able to export 
+if isfield(NIDM, 'NIDMResults_version')
+    NIDMversion = NIDM.NIDMResults_version;
+    % TODO % should check version and say whether we are able to export 
 else
     NIDMversion = '1.3.0';
 end
@@ -288,7 +287,7 @@ pp.entity(idResults,{...
   });
 
 idExporter = getid('niiri:exporter_id',isHumanReadable);
-softVersion = nidm_json.NIDMResultsExporter_softwareVersion;
+softVersion = NIDM.NIDMResultsExporter_softwareVersion;
 pp.agent(idExporter,{...
     'prov:type',nidm_conv('nidm_spm_results_nidm',pp),...
     'prov:type','prov:SoftwareAgent',...
@@ -308,17 +307,17 @@ p = spm_provenance;
 p.remove_namespace('prov');
 p.remove_namespace('xsd');
 
-coordsys = nidm_json.CoordinateSpace_inWorldCoordinateSystem;
+coordsys = NIDM.CoordinateSpace_inWorldCoordinateSystem;
 coordsys = nidm_conv(coordsys,p);
 
 %-Agent: SPM
 %--------------------------------------------------------------------------
 idSoftware = getid('niiri:software_id',isHumanReadable);
-softwareVersion = nidm_json.NeuroimagingAnalysisSoftware_softwareVersion;
+softwareVersion = NIDM.NeuroimagingAnalysisSoftware_softwareVersion;
 
-if isfield(nidm_json, 'NeuroimagingAnalysisSoftware_type')
-    soft = nidm_json.NeuroimagingAnalysisSoftware_type;
-    soft_label = nidm_json.NeuroimagingAnalysisSoftware_label;
+if isfield(NIDM, 'NeuroimagingAnalysisSoftware_type')
+    soft = NIDM.NeuroimagingAnalysisSoftware_type;
+    soft_label = NIDM.NeuroimagingAnalysisSoftware_label;
 end
 
 p.agent(idSoftware,{...
@@ -330,7 +329,7 @@ p.agent(idSoftware,{...
 
 %-Entity: Coordinate Space
 %--------------------------------------------------------------------------
-units = nidm_json.CoordinateSpace_voxelUnits;
+units = NIDM.CoordinateSpace_voxelUnits;
 gunzip(files.tspm)
 excset_img = nifti(strrep(files.tspm, '.gz', ''));
 spm_unlink(strrep(files.tspm, '.gz', ''))
@@ -338,7 +337,7 @@ id_data_coordspace = coordspace(p,excset_img.mat,excset_img.dat.dim,units,coords
 
 %-Agent: Scanner
 %--------------------------------------------------------------------------
-ImagingInstrument = nidm_json.Imaginginstrument_type;
+ImagingInstrument = NIDM.Imaginginstrument_type;
 switch ImagingInstrument
     case 'nlx_Magneticresonanceimagingscanner'
         ImagingInstrumentLabel = 'MRI Scanner';
@@ -363,7 +362,7 @@ p.agent(idScanner,{...
 
 %-Agent: Person
 %--------------------------------------------------------------------------
-if ~isfield(nidm_json, 'Groups')
+if ~isfield(NIDM, 'Groups')
     isgroup = false;
     
     idPerson = getid('niiri:subject_id',isHumanReadable);
@@ -373,7 +372,7 @@ if ~isfield(nidm_json, 'Groups')
         });
 else
     isgroup = true;
-    groups = nidm_json.Groups;
+    groups = NIDM.Groups;
     
     %-Agent: Group
     %----------------------------------------------------------------------
@@ -391,8 +390,8 @@ end
 
 %-Entity: Image Data
 %--------------------------------------------------------------------------
-if nidm_json.Data_grandMeanScaling
-    target = nidm_json.Data_targetIntensity;
+if NIDM.Data_grandMeanScaling
+    target = NIDM.Data_targetIntensity;
     extra_fields = {...
         nidm_conv('nidm_grandMeanScaling',p),{'true','xsd:boolean'},...
         nidm_conv('nidm_targetIntensity',p),{target,'xsd:float'},...
@@ -402,8 +401,8 @@ else
         nidm_conv('nidm_grandMeanScaling',p),{'false','xsd:boolean'},...
         };
 end
-if isfield(nidm_json, 'Data_hasMRIProtocol')
-    mri_protocol = nidm_json.Data_hasMRIProtocol;
+if isfield(NIDM, 'Data_hasMRIProtocol')
+    mri_protocol = NIDM.Data_hasMRIProtocol;
     extra_fields = {extra_fields{:},...
         nidm_conv('nidm_hasMRIProtocol',p),nidm_conv(mri_protocol,p),...
         };
@@ -425,13 +424,13 @@ end
 
 %-Entity: Drift Model
 %--------------------------------------------------------------------------
-if isfield(nidm_json, 'DesignMatrix_hasDriftModel')
+if isfield(NIDM, 'DesignMatrix_hasDriftModel')
     idDriftModel = getid('niiri:drift_model_id',isHumanReadable);
     
-    drift_model = nidm_json.DesignMatrix_hasDriftModel;
+    drift_model = NIDM.DesignMatrix_hasDriftModel;
     
     if strcmp(drift_model, 'spm_DiscreteCosineTransformbasisDriftModel')
-        cut_off = nidm_json.DesignMatrix_SPMsDriftCutoffPeriod;
+        cut_off = NIDM.DesignMatrix_SPMsDriftCutoffPeriod;
         extra_fields = {...
             nidm_conv('spm_SPMsDriftCutoffPeriod',p),...
             {cut_off,'xsd:float'}
@@ -454,8 +453,8 @@ idDesignMatrix = getid('niiri:design_matrix_id',isHumanReadable);
 idDesignMatrixImage = getid('niiri:design_matrix_png_id',isHumanReadable);
 
 extra_fields_basis_set = {};
-if isfield(nidm_json, 'DesignMatrix_hasHRFBasis')
-    hrf_bases = nidm_json.DesignMatrix_hasHRFBasis;
+if isfield(NIDM, 'DesignMatrix_hasHRFBasis')
+    hrf_bases = NIDM.DesignMatrix_hasHRFBasis;
     for h = 1:numel(hrf_bases)
         extra_fields_basis_set(end+1:end+2) = ...
                 {nidm_conv('nidm_hasHRFBasis',p),nidm_conv(hrf_bases{h},p)};
@@ -483,10 +482,10 @@ p.entity(idDesignMatrixImage,{...
 
 %-Entity: Explicit Mask
 %--------------------------------------------------------------------------
-if isfield(nidm_json, 'CustomMap_atLocation')
+if isfield(NIDM, 'CustomMap_atLocation')
     has_emask = true;
     
-    emask_map = nidm_json.CustomMap_atLocation;
+    emask_map = NIDM.CustomMap_atLocation;
     emask_img = nifti(emask_map);
     
     if ~spm_check_orientations(struct('dim',{emask_img.dat.dim,stat_img.dat.dim},...
@@ -514,8 +513,8 @@ end
 
 %-Entity: Error Model
 %--------------------------------------------------------------------------
-err_dep = nidm_json.ErrorModel_hasErrorDependence;
-err_var_hom = nidm_json.ErrorModel_errorVarianceHomogeneous;
+err_dep = NIDM.ErrorModel_hasErrorDependence;
+err_var_hom = NIDM.ErrorModel_errorVarianceHomogeneous;
 if err_var_hom
     err_var_hom = 'true';
 else
@@ -526,25 +525,25 @@ extra_fields_NM = { ...
     nidm_conv('nidm_errorVarianceHomogeneous',p),{err_var_hom,'xsd:boolean'}...
     };
 
-if isfield(nidm_json, 'ErrorModel_varianceMapWiseDependence')
-    err_var_dep = nidm_json.ErrorModel_varianceMapWiseDependence;
+if isfield(NIDM, 'ErrorModel_varianceMapWiseDependence')
+    err_var_dep = NIDM.ErrorModel_varianceMapWiseDependence;
     extra_fields_NM(end+1:end+2) = { ...
         nidm_conv('nidm_varianceMapWiseDependence',p),nidm_conv(err_var_dep,p)
     };
 end
-if isfield(nidm_json, 'ErrorModel_dependenceMapWiseDependence')
-    err_dep_dep = nidm_json.ErrorModel_dependenceMapWiseDependence;
+if isfield(NIDM, 'ErrorModel_dependenceMapWiseDependence')
+    err_dep_dep = NIDM.ErrorModel_dependenceMapWiseDependence;
     extra_fields_NM(end+1:end+2) = { ...
         nidm_conv('nidm_dependenceMapWiseDependence',p),nidm_conv(err_dep_dep,p)
     };
 end
 
-est_method = nidm_json.ModelParameterEstimation_withEstimationMethod;
+est_method = NIDM.ModelParameterEstimation_withEstimationMethod;
 extra_fields_PE = {
     nidm_conv('nidm_withEstimationMethod',p),nidm_conv(est_method,p),...
 };
 
-err_dist = nidm_json.ErrorModel_hasErrorDistribution;
+err_dist = NIDM.ErrorModel_hasErrorDistribution;
 if ~iscell(err_dist)
     err_dist = {err_dist};
 end
@@ -662,20 +661,16 @@ end
 
 %-Activity: Contrast Estimation
 %==========================================================================
-
-% if STAT == 'T', STAT = lower(STAT); end
-
-% contrast_names = contrasts.keys;
 for c=1:numel(contrasts)
     if isstruct(contrasts)
         my_contrast = contrasts(c);
     else
         my_contrast = contrasts{c};
     end
-    this_con_name = my_contrast.StatisticMap_contrastName; %contrast_names{c};
+    this_con_name = nidm_esc(my_contrast.StatisticMap_contrastName);
     
     if numel(contrasts) == 1, postfix = '';
-    else                    postfix = sprintf('_%d',c); end
+    else                      postfix = sprintf('_%d',c); end
     
     this_value = my_contrast.contrastweightmatrix_value;
     this_stat_type = my_contrast.StatisticMap_statisticType;
@@ -897,8 +892,8 @@ p.entity(idExtentThresh,{...
 
 %-Entity: Peak Definition Criteria
 %--------------------------------------------------------------------------
-maxNumberOfPeaksPerCluster = nidm_json.PeakDefinitionCriteria_maxNumberOfPeaksPerCluster;
-minDistanceBetweenPeaks = nidm_json.PeakDefinitionCriteria_minDistanceBetweenPeaks;
+maxNumberOfPeaksPerCluster = NIDM.PeakDefinitionCriteria_maxNumberOfPeaksPerCluster;
+minDistanceBetweenPeaks = NIDM.PeakDefinitionCriteria_minDistanceBetweenPeaks;
 idPeakDefCrit = getid('niiri:peak_definition_criteria_id',isHumanReadable);
 p.entity(idPeakDefCrit,{...
     'prov:type',nidm_conv('nidm_PeakDefinitionCriteria',p),...
@@ -909,7 +904,7 @@ p.entity(idPeakDefCrit,{...
 
 %-Entity: Cluster Definition Criteria
 %--------------------------------------------------------------------------
-clusterConnectivityCriterion = nidm_json.ClusterDefinitionCriteria_hasConnectivityCriterion; % see spm_max.m
+clusterConnectivityCriterion = NIDM.ClusterDefinitionCriteria_hasConnectivityCriterion; % see spm_max.m
 idClusterDefCrit = getid('niiri:cluster_definition_criteria_id',isHumanReadable);
 
 switch(clusterConnectivityCriterion)
@@ -959,8 +954,6 @@ p.wasAssociatedWith(idInference, idSoftware);
 p.used(idInference, idHeightThresh);
 p.used(idInference, idExtentThresh);
 for c=1:numel(contrasts)
-    if numel(contrasts) == 1, postfix = '';
-    else                    postfix = sprintf('_%d',c); end
     p.used(idInference, idSPM{c});
 end
 if has_rpv
@@ -990,7 +983,7 @@ if isfield(inference, 'DisplayMaskMap_atLocation')
         end
 
         if numel(files.dmask) == 1, postfix = '';
-        else                    postfix = sprintf('_%d',i); end
+        else                        postfix = sprintf('_%d',i); end
         idDMask = getid(['niiri:display_mask_map_id' postfix],isHumanReadable);
         p.entity(idDMask,{...
             'prov:type',nidm_conv('nidm_DisplayMaskMap',p),...
@@ -1045,7 +1038,6 @@ else
     rftstat_str = 'false';
 end
 
-% TODO checak if okay to have resels optional > maybe only for non param
 extra_fields_searchspace = {};
 has_resels = false;
 if isfield(inference, 'SearchSpaceMaskMap_reselSizeInVoxels')
@@ -1233,7 +1225,7 @@ for i=1:numel(clusters)
             my_peak = peaks(j);
         end
         
-        iPeak  = num2str(k, '%04d'); %peak_names{j};
+        iPeak  = num2str(k, '%04d');
         idPeak = getid(['niiri:peak_' iPeak],isHumanReadable);
         idCoordinate = getid(['niiri:coordinate_' iPeak],isHumanReadable);
         
@@ -1241,7 +1233,7 @@ for i=1:numel(clusters)
         if isfield(my_peak, 'Peak_pValueUncorrected')
             extra_peak(end+1:end+4) = {...
                 nidm_conv('nidm_pValueUncorrected',p),{my_peak.Peak_pValueUncorrected,'xsd:float'},...
-                nidm_conv('nidm_equivalentZStatistic',p),{my_peak.Peak_equivalentZStatistic,'xsd:float'},...
+                nidm_conv('nidm_equivalentZStatistic',p),{xsdfloat(my_peak.Peak_equivalentZStatistic),'xsd:float'},...
                 };
         end
         if isfield(my_peak, 'Peak_pValueFWER')
@@ -1275,7 +1267,6 @@ for i=1:numel(clusters)
     end
 end
 
-
 pp.bundle(idResults,p);
 
 %==========================================================================
@@ -1283,7 +1274,7 @@ pp.bundle(idResults,p);
 %==========================================================================
 %serialize(pp,fullfile(outdir,'nidm.provn'));
 serialize(pp,fullfile(outdir,'nidm.ttl'));
-try, serialize(pp,fullfile(outdir,'nidm.jsonld')); end
+serialize(pp,fullfile(outdir,'nidm.jsonld'));
 %serialize(pp,fullfile(outdir,'nidm.json'));
 %serialize(pp,fullfile(outdir,'nidm.pdf'));
 
@@ -1292,11 +1283,8 @@ while true
     nidmfile = fullfile(spm_fileparts(outdir),sprintf('%s_%04d.nidm.zip',lower(soft_label),i));
     if spm_existfile(nidmfile), i = i + 1; else break; end
 end
-f = zip(nidmfile,'*',outdir);
-for i=1:numel(f)
-    spm_unlink(fullfile(outdir,f{i}));
-end
-rmdir(outdir);
+zip(nidmfile,'*',outdir);
+rmdir(outdir,'s');
 
 prov = pp;
 
@@ -1325,6 +1313,16 @@ for i=1:length(e)
     u = strrep(u,e(i),['%' dec2hex(e(i))]);
 end
 u = spm_file(u,'filename');
+
+
+%==========================================================================
+% function v = xsdfloat(v)
+%==========================================================================
+function v = xsdfloat(v)
+% See http://books.xmlschemata.org/relaxng/ch19-77095.html
+if numel(v) == 1 && isinf(v) && v > 0, v = 'INF';  end
+if numel(v) == 1 && isinf(v) && v < 0, v = '-INF'; end
+if numel(v) == 1 && isnan(v),          v = 'NaN';  end
 
 
 %==========================================================================
