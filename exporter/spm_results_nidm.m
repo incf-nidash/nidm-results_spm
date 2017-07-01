@@ -20,7 +20,7 @@ function [nidmfile, prov] = spm_results_nidm(SPM,xSPM,TabDat,opts)
 % PROV-DM: The PROV Data Model:
 %   http://www.w3.org/TR/prov-dm/
 %__________________________________________________________________________
-% Copyright (C) 2013-2016 Wellcome Trust Centre for Neuroimaging
+% Copyright (C) 2013-2017 Wellcome Trust Centre for Neuroimaging
 
 % Guillaume Flandin
 % $Id: spm_results_nidm.m 6903 2016-10-12 11:36:41Z guillaume $
@@ -55,16 +55,16 @@ if nargin < 4
     opts = struct;
 end
 
-nidm_json = containers.Map();
+nidm_json = struct();
 
 %-Options
 %==========================================================================
 
 %-General options
 %--------------------------------------------------------------------------
-gz           = '.gz';                        %-Compressed NIfTI {'.gz', ''}
-NIDMversion  = '1.3.0';
-SVNrev       = '$Rev: 6903 $';
+gz          = '.gz';                         %-Compressed NIfTI {'.gz', ''}
+NIDMversion = '1.3.0';
+SVNrev      = '$Rev: 6903 $';
 
 %-Reference space
 %--------------------------------------------------------------------------
@@ -92,7 +92,7 @@ switch opts.space
     otherwise
         error('Unknown reference space.');
 end
-nidm_json('CoordinateSpace_inWorldCoordinateSystem') = coordsys;
+nidm_json.CoordinateSpace_inWorldCoordinateSystem = coordsys;
 
 %-Data modality
 %--------------------------------------------------------------------------
@@ -105,25 +105,22 @@ if ~isfield(opts,'mod')
 end
 switch opts.mod
     case 'AMRI'
-        ImagingInstrument      = 'nlx_Magneticresonanceimagingscanner';
-        
-        MRIProtocol            = 'nlx_AnatomicalMRIprotocol';    
+        ImagingInstrument = 'nlx_Magneticresonanceimagingscanner';
+        MRIProtocol       = 'nlx_AnatomicalMRIprotocol';    
     case 'FMRI'
-        ImagingInstrument      = 'nlx_Magneticresonanceimagingscanner';
-        
-        MRIProtocol            = 'nlx_FunctionalMRIprotocol';
+        ImagingInstrument = 'nlx_Magneticresonanceimagingscanner';
+        MRIProtocol       = 'nlx_FunctionalMRIprotocol';
     case 'DMRI'
-        ImagingInstrument      = 'nlx_Magneticresonanceimagingscanner';
-       
-        MRIProtocol            = 'nlx_DiffusionMRIprotocol';
+        ImagingInstrument = 'nlx_Magneticresonanceimagingscanner';
+        MRIProtocol       = 'nlx_DiffusionMRIprotocol';
     case 'PET'
-        ImagingInstrument      = 'nlx_Positronemissiontomographyscanner';
+        ImagingInstrument = 'nlx_Positronemissiontomographyscanner';
     case 'SPECT'
-        ImagingInstrument      = 'nlx_Singlephotonemissioncomputedtomographyscanner';
+        ImagingInstrument = 'nlx_Singlephotonemissioncomputedtomographyscanner';
     case 'EEG'
-        ImagingInstrument      = 'nlx_Electroencephalographymachine';
+        ImagingInstrument = 'nlx_Electroencephalographymachine';
     case 'MEG'
-        ImagingInstrument      = 'nlx_Magnetoencephalographymachine';
+        ImagingInstrument = 'nlx_Magnetoencephalographymachine';
     otherwise
         error('Unknown modality.');
 end
@@ -160,18 +157,19 @@ end
 %==========================================================================
 if ~exist(SPM.swd,'dir'), SPM.swd = pwd; end
 
+temp_img = {}; % TODO % create a temp directory to store intermediate files
+
 %-Design Matrix values
 %--------------------------------------------------------------------------
-nidm_json('DesignMatrix_value') = SPM.xX.xKXs.X;
-nidm_json('DesignMatrix_regressorNames') = SPM.xX.name;
-
-nidm_json('nidm_CoordinateSpace/units') = units;
+nidm_json.DesignMatrix_value = SPM.xX.xKXs.X;
+nidm_json.DesignMatrix_regressorNames = SPM.xX.name;
 
 %-Maximum Intensity Projection image (as png)
 %--------------------------------------------------------------------------
-temp_img = {};
-files.mip    = fullfile(SPM.swd,'MaximumIntensityProjection.png');
-MIP          = spm_mip(xSPM.Z,xSPM.XYZmm,xSPM.M,units);
+nidm_json.CoordinateSpace_voxelUnits = units;
+
+files.mip = fullfile(SPM.swd,'MaximumIntensityProjection.png');
+MIP       = spm_mip(xSPM.Z,xSPM.XYZmm,xSPM.M,units);
 imwrite(MIP,gray(64),files.mip,'png');
 
 temp_img{end+1} = files.mip;
@@ -179,37 +177,26 @@ temp_img{end+1} = files.mip;
 %-Beta images (as NIfTI)
 %--------------------------------------------------------------------------
 for i=1:numel(SPM.Vbeta)
-%     files.beta{i} = fullfile(outdir,[sprintf('ParameterEstimate_%04d',i) '.nii' gz]);
     files.beta{i} = fullfile(xSPM.swd,SPM.Vbeta(i).fname);
-%     img2nii(fullfile(xSPM.swd,SPM.Vbeta(i).fname), files.beta{i});
 end
 
 %-SPM{.}, contrast, contrast standard error, and contrast explained mean square images (as NIfTI)
-%-----------------------x---------------------------------------------------
+%--------------------------------------------------------------------------
 for i=1:numel(xSPM.Ic)
     if numel(xSPM.Ic) == 1, postfix = '';
     else                    postfix = sprintf('_%04d',i); end
-%     files.spm{i}  = fullfile(outdir,[xSPM.STAT 'Statistic' postfix '.nii' gz]);
-%     img2nii(fullfile(xSPM.swd,SPM.xCon(xSPM.Ic(i)).Vspm.fname), files.spm{i}, xSPM);
     files.spm{i} = fullfile(xSPM.swd,SPM.xCon(xSPM.Ic(i)).Vspm.fname);
     if xSPM.STAT == 'T'
-%         files.con{i} = fullfile(outdir,['Contrast' postfix '.nii' gz]);
-%         img2nii(fullfile(xSPM.swd,SPM.xCon(xSPM.Ic(i)).Vcon.fname), files.con{i},...
-%             struct('STAT','con'));
         files.con{i} = fullfile(xSPM.swd,SPM.xCon(xSPM.Ic(i)).Vcon.fname);
         
-        % Create conse map
         files.conse{i} = fullfile(xSPM.swd,['ContrastStandardError' postfix '.nii' gz]);
         Vc = SPM.xCon(xSPM.Ic(i)).c' * SPM.xX.Bcov * SPM.xCon(xSPM.Ic(i)).c;
         img2nii(fullfile(xSPM.swd,SPM.VResMS.fname), files.conse{i}, struct('fcn',@(x) sqrt(x*Vc)));
-        
         temp_img{end+1} = files.conse{i};
-        
     elseif xSPM.STAT == 'F'
         files.effms{i} = fullfile(xSPM.swd,['ContrastExplainedMeanSquare' postfix '.nii' gz]);
         eidf = SPM.xCon(xSPM.Ic(i)).eidf;
         img2nii(fullfile(xSPM.swd,SPM.xCon(xSPM.Ic(i)).Vcon.fname), files.effms{i}, struct('fcn',@(x) x/eidf));
-        
         temp_img{end+1} = files.effms{i};
     end
 end
@@ -220,26 +207,19 @@ files.tspm = fullfile(xSPM.swd,['ExcursionSet.nii' gz]);
 if ~isempty(gz), files.tspm = spm_file(files.tspm,'ext',''); end
 spm_write_filtered(xSPM.Z,xSPM.XYZ,xSPM.DIM,xSPM.M,'',files.tspm);
 if ~isempty(gz), gzip(files.tspm); spm_unlink(files.tspm); files.tspm = [files.tspm gz]; end
-
 temp_img{end+1} = files.tspm;
 
 %-Residual Mean Squares image (as NIfTI)
 %--------------------------------------------------------------------------
 files.resms = fullfile(xSPM.swd,SPM.VResMS.fname);
-% files.resms = fullfile(outdir,['ResidualMeanSquares.nii' gz]);
-% img2nii(fullfile(xSPM.swd,SPM.VResMS.fname), files.resms);
 
 %-Resels per Voxel image (as NIfTI)
 %--------------------------------------------------------------------------
 files.rpv = fullfile(xSPM.swd,SPM.xVol.VRpv.fname);
-% files.rpv = fullfile(outdir,['ReselsPerVoxel.nii' gz]);
-% img2nii(fullfile(xSPM.swd,SPM.xVol.VRpv.fname), files.rpv);
 
 %-Analysis mask image (as NIfTI)
 %--------------------------------------------------------------------------
 files.mask = fullfile(xSPM.swd,SPM.VM.fname);
-% files.mask = fullfile(outdir,['Mask.nii' gz]);
-% img2nii(fullfile(xSPM.swd,SPM.VM.fname), files.mask);
 
 %-Grand mean image (as NIfTI)
 %--------------------------------------------------------------------------
@@ -335,8 +315,6 @@ end
 %-Search Space mask image (as NIfTI)
 %--------------------------------------------------------------------------
 files.searchspace = fullfile(xSPM.swd,SPM.VM.fname);
-% files.searchspace = fullfile(outdir,['SearchSpaceMask.nii' gz]);
-% img2nii(fullfile(xSPM.swd,SPM.VM.fname), files.searchspace);
 
 
 %==========================================================================
@@ -347,49 +325,48 @@ files.searchspace = fullfile(xSPM.swd,SPM.VM.fname);
 %--------------------------------------------------------------------------
 [V,R] = spm('Ver');
 
-nidm_json('NIDMResultsExporter_type') = 'spm_results_nidm';
-nidm_json('NIDMResultsExporter_softwareVersion') = [V(4:end) '.' char(regexp(SVNrev,'\$Rev: (\w.*?) \$','tokens','once'))];
-nidm_json('NIDMResults_version') = NIDMversion;
+nidm_json.NIDMResultsExporter_type = 'spm_results_nidm';
+nidm_json.NIDMResultsExporter_softwareVersion = [V(4:end) '.' char(regexp(SVNrev,'\$Rev: (\w.*?) \$','tokens','once'))];
+nidm_json.NIDMResults_version = NIDMversion;
 
 %-Agent: SPM
 %--------------------------------------------------------------------------
-nidm_json('NeuroimagingAnalysisSoftware_type') = 'src_SPM';
-nidm_json('NeuroimagingAnalysisSoftware_label') = 'SPM';
-nidm_json('NeuroimagingAnalysisSoftware_softwareVersion') = [V(4:end) '.' R];
+nidm_json.NeuroimagingAnalysisSoftware_type = 'src_SPM';
+nidm_json.NeuroimagingAnalysisSoftware_label = 'SPM';
+nidm_json.NeuroimagingAnalysisSoftware_softwareVersion = [V(4:end) '.' R];
 
 %-Agent: Scanner
 %--------------------------------------------------------------------------
-nidm_json('Imaginginstrument_type') = ImagingInstrument;
+nidm_json.Imaginginstrument_type = ImagingInstrument;
 
 %-Agent: Person
 %--------------------------------------------------------------------------
 if ~isequal(groups.N,1)
     %-Agent: Group
     %----------------------------------------------------------------------
-    nidm_groups = containers.Map();
     for i=1:numel(groups.N)
-        nidm_groups(groups.name{i}) = groups.N(i);
+        nidm_json.Groups(i).studygrouppopulation_groupName = groups.name{i};
+        nidm_json.Groups(i).studygrouppopulation_numberOfSubjects = groups.N(i);
     end
-    nidm_json('Groups') = nidm_groups;
 end
 
 %-Entity: Image Data
 %--------------------------------------------------------------------------
 if isfield(SPM,'Sess')
-    nidm_json('Data_grandMeanScaling') = true;
-    nidm_json('Data_targetIntensity') = SPM.xGX.GM;
+    nidm_json.Data_grandMeanScaling = true;
+    nidm_json.Data_targetIntensity = SPM.xGX.GM;
 else
-    nidm_json('Data_grandMeanScaling') = false;
+    nidm_json.Data_grandMeanScaling = false;
 end
 if ~isempty(MRIProtocol)
-    nidm_json('Data_hasMRIProtocol') = MRIProtocol;
+    nidm_json.Data_hasMRIProtocol = MRIProtocol;
 end
 
 %-Entity: Drift Model
 %--------------------------------------------------------------------------
 if isfield(SPM,'Sess') && isfield(SPM.xX,'K')
-    nidm_json('DesignMatrix_hasDriftModel') = 'spm_DiscreteCosineTransformbasisDriftModel';
-    nidm_json('DesignMatrix_SPMsDriftCutoffPeriod') = SPM.xX.K(1).HParam;
+    nidm_json.DesignMatrix_hasDriftModel = 'spm_DiscreteCosineTransformbasisDriftModel';
+    nidm_json.DesignMatrix_SPMsDriftCutoffPeriod = SPM.xX.K(1).HParam;
 end
 
 %-Entity: Design Matrix
@@ -397,17 +374,17 @@ end
 if isfield(SPM,'xBF')
     switch SPM.xBF.name
         case 'hrf'
-            nidm_json('DesignMatrix_hasHRFBasis') = {'spm_SPMsCanonicalHRF'};
+            nidm_json.DesignMatrix_hasHRFBasis = {'spm_SPMsCanonicalHRF'};
         case 'hrf (with time derivative)'
-            nidm_json('DesignMatrix_hasHRFBasis') = {'spm_SPMsCanonicalHRF', 'spm_SPMsTemporalDerivative'};
+            nidm_json.DesignMatrix_hasHRFBasis = {'spm_SPMsCanonicalHRF', 'spm_SPMsTemporalDerivative'};
         case 'hrf (with time and dispersion derivatives)'
-            nidm_json('DesignMatrix_hasHRFBasis') = {'spm_SPMsCanonicalHRF', 'spm_SPMsTemporalDerivative', 'spm_SPMsDispersionDerivative'};
+            nidm_json.DesignMatrix_hasHRFBasis = {'spm_SPMsCanonicalHRF', 'spm_SPMsTemporalDerivative', 'spm_SPMsDispersionDerivative'};
         case 'Finite Impulse Response'
-            nidm_json('DesignMatrix_hasHRFBasis') = {'nidm_FiniteImpulseResponseBasisSet'};
+            nidm_json.DesignMatrix_hasHRFBasis = {'nidm_FiniteImpulseResponseBasisSet'};
         case 'Fourier set'
-            nidm_json('DesignMatrix_hasHRFBasis') = {'nidm_FourierBasisSet'};
+            nidm_json.DesignMatrix_hasHRFBasis = {'nidm_FourierBasisSet'};
         case 'Gamma functions'
-            nidm_json('DesignMatrix_hasHRFBasis') = {'nidm_GammaBasisSet'};
+            nidm_json.DesignMatrix_hasHRFBasis = {'nidm_GammaBasisSet'};
         case {'Fourier set (Hanning)'}
             warning('Not implemented "%s".',SPM.xBF.name);
         otherwise
@@ -418,123 +395,96 @@ end
 %-Entity: Explicit Mask
 %--------------------------------------------------------------------------
 if ~isempty(SPM.xM.VM)
-    nidm_json('CustomMap_atLocation') = files.emask;
+    nidm_json.CustomMap_atLocation = files.emask;
 end
 
 %-Entity: Error Model
 %--------------------------------------------------------------------------
 if isfield(SPM.xVi,'form')
     if strcmp(SPM.xVi.form,'i.i.d')
-        nidm_json('ErrorModel_errorVarianceHomogeneous') = true;
-        nidm_json('ErrorModel_hasErrorDependence') = 'nidm_IndependentError';
-        nidm_json('ModelParameterEstimation_withEstimationMethod') = 'obo_ordinaryleastsquaresestimation';
+        nidm_json.ErrorModel_errorVarianceHomogeneous = true;
+        nidm_json.ErrorModel_hasErrorDependence = 'nidm_IndependentError';
+        nidm_json.ModelParameterEstimation_withEstimationMethod = 'obo_ordinaryleastsquaresestimation';
     else
-        nidm_json('ErrorModel_errorVarianceHomogeneous') = true;
-        nidm_json('ErrorModel_hasErrorDependence') = 'obo_Toeplitzcovariancestructure';
-        nidm_json('ErrorModel_dependenceMapWiseDependence') = 'nidm_ConstantParameter';
-        nidm_json('ErrorModel_varianceMapWiseDependence') = 'nidm_IndependentParameter';
-        nidm_json('ModelParameterEstimation_withEstimationMethod') = 'obo_generalizedleastsquaresestimation';
+        nidm_json.ErrorModel_errorVarianceHomogeneous = true;
+        nidm_json.ErrorModel_hasErrorDependence = 'obo_Toeplitzcovariancestructure';
+        nidm_json.ErrorModel_dependenceMapWiseDependence = 'nidm_ConstantParameter';
+        nidm_json.ErrorModel_varianceMapWiseDependence = 'nidm_IndependentParameter';
+        nidm_json.ModelParameterEstimation_withEstimationMethod = 'obo_generalizedleastsquaresestimation';
     end
 else
     if ~isfield(SPM.xVi,'Vi') || numel(SPM.xVi.Vi) == 1 % assume it's identity
-        nidm_json('ErrorModel_errorVarianceHomogeneous') = true;
-        nidm_json('ErrorModel_hasErrorDependence') = 'nidm_IndependentError';
-        nidm_json('ErrorModel_varianceMapWiseDependence') = 'nidm_IndependentParameter';
-        nidm_json('ModelParameterEstimation_withEstimationMethod') = 'obo_ordinaryleastsquaresestimation';
+        nidm_json.ErrorModel_errorVarianceHomogeneous = true;
+        nidm_json.ErrorModel_hasErrorDependence = 'nidm_IndependentError';
+        nidm_json.ErrorModel_varianceMapWiseDependence = 'nidm_IndependentParameter';
+        nidm_json.ModelParameterEstimation_withEstimationMethod = 'obo_ordinaryleastsquaresestimation';
     else
-        nidm_json('ErrorModel_errorVarianceHomogeneous') = false;
-        nidm_json('ErrorModel_hasErrorDependence') = 'obo_unstructuredcovariancestructure';
-        nidm_json('ErrorModel_dependenceMapWiseDependence') = 'nidm_ConstantParameter';
-        nidm_json('ErrorModel_varianceMapWiseDependence') = 'nidm_IndependentParameter';
-        nidm_json('ModelParameterEstimation_withEstimationMethod') = 'obo_generalizedleastsquaresestimation';
+        nidm_json.ErrorModel_errorVarianceHomogeneous = false;
+        nidm_json.ErrorModel_hasErrorDependence = 'obo_unstructuredcovariancestructure';
+        nidm_json.ErrorModel_dependenceMapWiseDependence = 'nidm_ConstantParameter';
+        nidm_json.ErrorModel_varianceMapWiseDependence = 'nidm_IndependentParameter';
+        nidm_json.ModelParameterEstimation_withEstimationMethod = 'obo_generalizedleastsquaresestimation';
     end
 end
 
-nidm_json('ErrorModel_hasErrorDistribution') = 'obo_normaldistribution';
+nidm_json.ErrorModel_hasErrorDistribution = 'obo_normaldistribution';
 
 %-Activity: Model Parameters Estimation
 %==========================================================================
 
 %-Entity: Mask Map
 %--------------------------------------------------------------------------
-nidm_json('MaskMap_atLocation') = uri(spm_file(files.mask,'cpath'));
+nidm_json.MaskMap_atLocation = uri(spm_file(files.mask,'cpath'));
 
 %-Entity: Grand Mean Map
 %--------------------------------------------------------------------------
-nidm_json('GrandMeanMap_atLocation') = uri(spm_file(files.grandmean,'cpath'));
+nidm_json.GrandMeanMap_atLocation = uri(spm_file(files.grandmean,'cpath'));
 
 %-Entity: Parameter Estimate (Beta) Maps
 %--------------------------------------------------------------------------
-nidm_betas = containers.Map();
 for i=1:numel(SPM.Vbeta)
-    nidm_betas(nidm_esc(SPM.xX.name{i})) = uri(files.beta{i});
+    nidm_json.ParameterEstimateMaps{i} = uri(files.beta{i});
 end
-nidm_json('ParameterEstimateMaps') = nidm_betas;
 
 %-Entity: ResMS Map
 %--------------------------------------------------------------------------
-nidm_json('ResidualMeanSquaresMap_atLocation') = uri(spm_file(files.resms,'cpath'));
+nidm_json.ResidualMeanSquaresMap_atLocation = uri(spm_file(files.resms,'cpath'));
 
 %-Entity: RPV Map
 %--------------------------------------------------------------------------
-nidm_json('ReselsPerVoxelMap_atLocation') = uri(spm_file(files.rpv,'cpath'));
+nidm_json.ReselsPerVoxelMap_atLocation = uri(spm_file(files.rpv,'cpath'));
 
 %-Activity: Contrast Estimation
 %==========================================================================
 STAT = xSPM.STAT;
 if STAT == 'T', STAT = lower(STAT); end
 
-nidm_contrasts = containers.Map();
-contrast_names = {};
+contrast_names = cell(1,numel(xSPM.Ic));
 
 for c=1:numel(xSPM.Ic)
-    if numel(xSPM.Ic) == 1, postfix = '';
-    else                    postfix = sprintf('_%d',c); end
-       
+    con_name = nidm_esc(SPM.xCon(xSPM.Ic(c)).name);
+    contrast_names{c} = con_name;
     if xSPM.STAT == 'T'
-        con_name = nidm_esc(SPM.xCon(xSPM.Ic(c)).name);
-        contrast_names{end+1} = con_name;
-        nidm_contrasts(con_name) = ...
-            containers.Map({...
-                'obo_contrastweightmatrix/prov:value', ...
-                'StatisticMap_statisticType', ...
-                'StatisticMap_errorDegreesOfFreedom', ...
-                'StatisticMap_atLocation', ...
-                'ContrastMap_atLocation', ...
-                'ContrastStandardErrorMap_atLocation' ...
-            }, ...
-            { ...
-                SPM.xCon(xSPM.Ic(c)).c', ...
-                ['obo_' STAT 'statistic'], ...
-                xSPM.df(2), ...
-                uri(spm_file(files.spm{c},'cpath')), ...
-                uri(spm_file(files.con{c},'cpath')), ...
-                uri(spm_file(files.conse{c},'cpath')) ...
-            });
+        nidm_json.Contrasts(c) = struct(...
+            'StatisticMap_contrastName', con_name, ...
+            'contrastweightmatrix_value', SPM.xCon(xSPM.Ic(c)).c', ...
+            'StatisticMap_statisticType', ['obo_' STAT 'statistic'], ...
+            'StatisticMap_errorDegreesOfFreedom', xSPM.df(2), ...
+            'StatisticMap_atLocation', uri(spm_file(files.spm{c},'cpath')), ...
+            'ContrastMap_atLocation', uri(spm_file(files.con{c},'cpath')), ...
+            'ContrastStandardErrorMap_atLocation', uri(spm_file(files.conse{c},'cpath')));
     end
     if xSPM.STAT == 'F'
-        con_name = nidm_esc(SPM.xCon(xSPM.Ic(c)).name);
-        contrast_names{end+1} = con_name;
-        nidm_contrasts(con_name) = ...
-            containers.Map({...
-                'obo_contrastweightmatrix/prov:value', ...
-                'StatisticMap_statisticType', ...
-                'StatisticMap_errorDegreesOfFreedom', ...
-                'StatisticMap_effectDegreesOfFreedom', ...
-                'StatisticMap_atLocation', ...
-                'ContrastExplainedMeanSquareMap_atLocation' ...
-            }, ...
-            { ...
-                SPM.xCon(xSPM.Ic(c)).c', ...
-                ['obo_' STAT 'statistic'], ...
-                xSPM.df(2), ...
-                xSPM.df(1), ...
-                uri(spm_file(files.spm{c},'cpath')), ...
-                uri(uri(spm_file(files.effms{c},'cpath'))) ...
-            });
+        nidm_json.Contrasts(c) = struct(...
+            'StatisticMap_contrastName', con_name, ...
+            'obo_contrastweightmatrix/prov:value', SPM.xCon(xSPM.Ic(c)).c', ...
+            'StatisticMap_statisticType', ['obo_' STAT 'statistic'], ...
+            'StatisticMap_errorDegreesOfFreedom', xSPM.df(2), ...
+            'StatisticMap_effectDegreesOfFreedom', xSPM.df(1), ...
+            'StatisticMap_atLocation', uri(spm_file(files.spm{c},'cpath')), ...
+            'ContrastExplainedMeanSquareMap_atLocation', uri(uri(spm_file(files.effms{c},'cpath'))));
     end
 end
-nidm_json('Contrasts') = nidm_contrasts;
 
 %-Entity: Height Threshold
 %--------------------------------------------------------------------------
@@ -597,38 +547,26 @@ else
     kk = [1 1];
 end
 
-nidm_inference = containers.Map();
-nidm_inference('HeightThreshold_type') = thresh(1).type;
-nidm_inference('HeightThreshold_value') = thresh(1).value;
-nidm_inference('ExtentThreshold_type') = 'obo_statistic';
-nidm_inference('ExtentThreshold_clusterSizeInVoxels') = TabDat.ftr{2,2}(1);
-nidm_inference('ExtentThreshold_clusterSizeInResels') = TabDat.ftr{2,2}(1)*V2R;
+nidm_inference = struct();
+nidm_inference.HeightThreshold_type = thresh(1).type;
+nidm_inference.HeightThreshold_value = thresh(1).value;
+nidm_inference.ExtentThreshold_type = 'obo_statistic';
+nidm_inference.ExtentThreshold_clusterSizeInVoxels = TabDat.ftr{2,2}(1);
+nidm_inference.ExtentThreshold_clusterSizeInResels = TabDat.ftr{2,2}(1)*V2R;
 
-nidm_height_equivthresh = containers.Map();
-nidm_extent_equivthresh = containers.Map();
+nidm_height_equivthresh = struct();
+nidm_extent_equivthresh = struct();
 ex_equiv_types = {'obo_FWERadjustedpvalue', 'nidm_PValueUncorrected'};
 for i = 2:3
-    nidm_height_equivthresh(nidm_esc([thresh(i).label ' ' num2str(i)])) = containers.Map(...
-        {...
-            'HeightThreshold_type', ...
-            'HeightThreshold_value'
-        }, {...
-            thresh(i).type, ...
-            thresh(i).value, ...
-        });
-    nidm_extent_equivthresh(nidm_esc(['Extent threshold ' num2str(i)])) = containers.Map(...
-        {...
-            'ExtentThreshold_type', ...
-            'ExtentThreshold_value' % SPM equiv thresholds are always p-values (i.e. not cluster sizes)
-        }, {...
-            ex_equiv_types{i-1}, ...
-            kk(i-1)
-        });
+    nidm_height_equivthresh(i-1).HeightThreshold_type =  thresh(i).type;
+    nidm_height_equivthresh(i-1).HeightThreshold_value = thresh(i).value;
+    nidm_extent_equivthresh(i-1).ExtentThreshold_type = ex_equiv_types{i-1};
+     % SPM equiv thresholds are always p-values (i.e. not cluster sizes)
+    nidm_extent_equivthresh(i-1).ExtentThreshold_value = kk(i-1);
 end
-nidm_inference('HeightThreshold_equivalentThreshold') = nidm_height_equivthresh;
-nidm_inference('ExtentThreshold_equivalentThreshold') = nidm_extent_equivthresh;
+nidm_inference.HeightThreshold_equivalentThreshold = nidm_height_equivthresh;
+nidm_inference.ExtentThreshold_equivalentThreshold = nidm_extent_equivthresh;
 
-nidm_inferences = containers.Map();
 %-Entity: Peak & Cluster Definition Criteria
 %--------------------------------------------------------------------------
 % TabDat.str = 'table shows %d local maxima more than %.1fmm apart'
@@ -636,78 +574,63 @@ maxNumberOfPeaksPerCluster = spm_get_defaults('stats.results.volume.nbmax');
 minDistanceBetweenPeaks = spm_get_defaults('stats.results.volume.distmin');
 clusterConnectivityCriterion = 18; % see spm_max.m
 
-nidm_json('ClusterDefinitionCriteria_hasConnectivityCriterion') = ...
+nidm_json.ClusterDefinitionCriteria_hasConnectivityCriterion = ...
     sprintf('nidm_voxel%dconnected',clusterConnectivityCriterion);
-nidm_json('PeakDefinitionCriteria_minDistanceBetweenPeaks') = ...
+nidm_json.PeakDefinitionCriteria_minDistanceBetweenPeaks = ...
     minDistanceBetweenPeaks;
-nidm_json('PeakDefinitionCriteria_maxNumberOfPeaksPerCluster') = ...
+nidm_json.PeakDefinitionCriteria_maxNumberOfPeaksPerCluster = ...
     maxNumberOfPeaksPerCluster;
     
 %-Activity: Inference
 %==========================================================================
-nidm_inference('Inference_hasAlternativeHypothesis') = ...
-    'nidm_OneTailedTest';
+nidm_inference.Inference_hasAlternativeHypothesis = 'nidm_OneTailedTest';
 if numel(xSPM.Ic) == 1
     conj = false;
 else
     conj = true;
-    nidm_inference('nidm_contrastName') = contrast_names;
+    nidm_inference.nidm_contrastName = contrast_names;
     if xSPM.n == 1
-        nidm_inference('Inference_type') = 'nidm_ConjunctionInference';
-% 
-%         st = {'prov:type',nidm_conv('nidm_ConjunctionInference',p), ...
-%               nidm_conv('nidm_hasAlternativeHypothesis',p),nidm_conv('nidm_OneTailedTest',p),...
-%               'prov:label','Conjunction Inference'};
+        nidm_inference.Inference_type = 'nidm_ConjunctionInference';
     else
-        nidm_inference('Inference_type') = 'spm_PartialConjunctionInference';
-        nidm_inference('spm_PartialConjunctionInference/spm_partialConjunctionDegree') = xSPM.n;
-%         
-%         st = {'prov:type',nidm_conv('spm_PartialConjunctionInference',p), ...
-%               nidm_conv('nidm_hasAlternativeHypothesis',p),nidm_conv('nidm_OneTailedTest',p),...
-%               'prov:label','Partial Conjunction Inference', ...
-%               nidm_conv('spm_partialConjunctionDegree',p),{xSPM.n,'xsd:int'}};
+        nidm_inference.Inference_type = 'spm_PartialConjunctionInference';
+        nidm_inference.PartialConjunctionInference_partialConjunctionDegree = xSPM.n;
     end
 end
 
 %-Entity: Display Mask Maps
 %--------------------------------------------------------------------------
 for i=1:numel(files.dmask)
-    % TODO: why more than 1??
-    
-    nidm_inference('DisplayMaskMap_atLocation') = ...
-        uri(spm_file(files.dmask{i},'cpath'));
+    nidm_inference.DisplayMaskMap_atLocation = uri(spm_file(files.dmask{i},'cpath'));
 end
 
 %-Entity: SVC Mask Map
 %--------------------------------------------------------------------------
 if ~isempty(files.svcmask)
-    nidm_inference('nidm:SubVolumeMap/prov:atLocation') = ...
-        uri(spm_file(files.svcmask,'cpath'));    
+    nidm_inference.SubVolumeMap_atLocation = uri(spm_file(files.svcmask,'cpath'));    
 end
 
 %-Entity: Search Space
 %--------------------------------------------------------------------------
-nidm_inference('SearchSpaceMaskMap_atLocation') = ...
-        uri(spm_file(files.searchspace,'cpath'));
-nidm_inference('SearchSpaceMaskMap_searchVolumeInVoxels') = xSPM.S;    
-nidm_inference('SearchSpaceMaskMap_searchVolumeInUnits') = TabDat.ftr{8,2}(1);    
-nidm_inference('SearchSpaceMaskMap_reselSizeInVoxels') = TabDat.ftr{9,2}(end);
-nidm_inference('SearchSpaceMaskMap_searchVolumeInResels') = TabDat.ftr{8,2}(3);
-nidm_inference('SearchSpaceMaskMap_searchVolumeReselsGeometry') = xSPM.R;
-nidm_inference('SearchSpaceMaskMap_noiseFWHMInVoxels') = xSPM.FWHM;
-nidm_inference('SearchSpaceMaskMap_noiseFWHMInUnits') = TabDat.ftr{7,2}(1:3);
-nidm_inference('SearchSpaceMaskMap_randomFieldStationarity') = ...
+nidm_inference.SearchSpaceMaskMap_atLocation = uri(spm_file(files.searchspace,'cpath'));
+nidm_inference.SearchSpaceMaskMap_searchVolumeInVoxels = xSPM.S;    
+nidm_inference.SearchSpaceMaskMap_searchVolumeInUnits = TabDat.ftr{8,2}(1);    
+nidm_inference.SearchSpaceMaskMap_reselSizeInVoxels = TabDat.ftr{9,2}(end);
+nidm_inference.SearchSpaceMaskMap_searchVolumeInResels = TabDat.ftr{8,2}(3);
+nidm_inference.SearchSpaceMaskMap_searchVolumeReselsGeometry = xSPM.R;
+nidm_inference.SearchSpaceMaskMap_noiseFWHMInVoxels = xSPM.FWHM;
+nidm_inference.SearchSpaceMaskMap_noiseFWHMInUnits = TabDat.ftr{7,2}(1:3);
+nidm_inference.SearchSpaceMaskMap_randomFieldStationarity = ...
     ~spm_get_defaults('stats.rft.nonstat');
-nidm_inference('SearchSpaceMaskMap_expectedNumberOfVoxelsPerCluster') = TabDat.ftr{3,2};
-nidm_inference('SearchSpaceMaskMap_expectedNumberOfClusters') = TabDat.ftr{4,2};
-nidm_inference('SearchSpaceMaskMap_heightCriticalThresholdFWE05') = xSPM.uc(1);
-nidm_inference('SearchSpaceMaskMap_heightCriticalThresholdFDR05') = xSPM.uc(2);
+nidm_inference.SearchSpaceMaskMap_expectedNumberOfVoxelsPerCluster = TabDat.ftr{3,2};
+nidm_inference.SearchSpaceMaskMap_expectedNumberOfClusters = TabDat.ftr{4,2};
+nidm_inference.SearchSpaceMaskMap_heightCriticalThresholdFWE05 = xSPM.uc(1);
+nidm_inference.SearchSpaceMaskMap_heightCriticalThresholdFDR05 = xSPM.uc(2);
 
 if isfinite(xSPM.uc(3))
-    nidm_inference('SearchSpaceMaskMap_smallestSignificantClusterSizeInVoxelsFWE05') = xSPM.uc(3);
+    nidm_inference.SearchSpaceMaskMap_smallestSignificantClusterSizeInVoxelsFWE05 = xSPM.uc(3);
 end
 if isfinite(xSPM.uc(4))
-    nidm_inference('SearchSpaceMaskMap_smallestSignificantClusterSizeInVoxelsFDR05') = xSPM.uc(4);
+    nidm_inference.SearchSpaceMaskMap_smallestSignificantClusterSizeInVoxelsFDR05 = xSPM.uc(4);
 end
 
 %-Entity: Excursion Set
@@ -720,80 +643,53 @@ else
     pc = NaN;
 end
 
-nidm_inference('ExcursionSetMap_atLocation') = uri(spm_file(files.tspm,'cpath'));
-nidm_inference('ExcursionSetMap_numberOfSupraThresholdClusters') = c;
-nidm_inference('ExcursionSetMap_pValue') = pc;
+nidm_inference.ExcursionSetMap_atLocation = uri(spm_file(files.tspm,'cpath'));
+nidm_inference.ExcursionSetMap_numberOfSupraThresholdClusters = c;
+nidm_inference.ExcursionSetMap_pValue = pc;
 
-nidm_inference('ClusterLabelsMap_atLocation') = uri(spm_file(files.clust,'cpath'));
-nidm_inference('ExcursionSetMap_hasMaximumIntensityProjection') = uri(spm_file(files.mip,'cpath'));
+nidm_inference.ClusterLabelsMap_atLocation = uri(spm_file(files.clust,'cpath'));
+nidm_inference.ExcursionSetMap_hasMaximumIntensityProjection = uri(spm_file(files.mip,'cpath'));
 
 
-%-Entity: Clusters
+%-Entity: Peaks & Clusters
 %--------------------------------------------------------------------------
-nidm_clusters = containers.Map();
+nidm_clusters = struct();
 
 idx = find(~cellfun(@isempty,{TabDat.dat{:,5}}));
 
 clustidx = cumsum(~cellfun(@isempty,{TabDat.dat{:,5}}));
-num_digits = numel(num2str(max(clustidx)));
 
-for i=1:numel(idx)
-    clust_key = num2str(i, ['%0' num2str(num_digits) 'd']);
+for i=1:numel(idx)    
+    nidm_clusters(i).SupraThresholdCluster_clusterSizeInVoxels = TabDat.dat{idx(i),5};
+    nidm_clusters(i).SupraThresholdCluster_clusterSizeInResels = TabDat.dat{idx(i),5}*V2R;
+    nidm_clusters(i).SupraThresholdCluster_pValueUncorrected = TabDat.dat{idx(i),6};
+    nidm_clusters(i).SupraThresholdCluster_pValueFWER = TabDat.dat{idx(i),3};
+    nidm_clusters(i).SupraThresholdCluster_qValueFDR = TabDat.dat{idx(i),4};
     
-    clust_keys = {...
-            'SupraThresholdCluster_clusterSizeInVoxels',...
-            'SupraThresholdCluster_clusterSizeInResels',...
-            'SupraThresholdCluster_pValueUncorrected',...
-            'SupraThresholdCluster_pValueFWER',...
-            'SupraThresholdCluster_qValueFDR'...
-        };
-    clust_values = {...
-            TabDat.dat{idx(i),5}, ...
-            TabDat.dat{idx(i),5}*V2R, ...
-            TabDat.dat{idx(i),6}, ...
-            TabDat.dat{idx(i),3}, ...
-            TabDat.dat{idx(i),4} ...   
-        };
-    
-%-Entity: Peaks
-%--------------------------------------------------------------------------
-    nidm_peaks = containers.Map();
+    %-Entity: Peaks
+    %----------------------------------------------------------------------
+    nidm_peaks = struct();
+    k = 1;
     for j=1:size(TabDat.dat,1)
         if clustidx(j) == i
-            %     iPeak  = sprintf('%04d',i);   
-            nidm_peaks(num2str(j, '%04d')) = containers.Map(...
-                { ...
-                    'Peak_value', ...
-                    'Coordinate_coordinateVector', ...
-                    'Peak_pValueUncorrected', ...
-                    'Peak_equivalentZStatistic', ...
-                    'Peak_pValueFWER', ...
-                    'Peak_qValueFDR'
-                }, ...
-                { ...
-                    TabDat.dat{j,9}, ...
-                    TabDat.dat{j,12}(1:3), ...
-                    TabDat.dat{j,11}, ...
-                    xsdfloat(TabDat.dat{j,10}), ...
-                    TabDat.dat{j,7}, ...
-                    TabDat.dat{j,8} 
-                });
+            nidm_peaks(k).Peak_value = TabDat.dat{j,9};
+            nidm_peaks(k).Coordinate_coordinateVector = TabDat.dat{j,12}(1:3);
+            nidm_peaks(k).Peak_pValueUncorrected = TabDat.dat{j,11};
+            nidm_peaks(k).Peak_equivalentZStatistic = xsdfloat(TabDat.dat{j,10});
+            nidm_peaks(k).Peak_pValueFWER = TabDat.dat{j,7};
+            nidm_peaks(k).Peak_qValueFDR = TabDat.dat{j,8};
+            k = k + 1;
         end
     end
-    clust_keys{end+1} = 'Peaks';
-    clust_values{end+1} = nidm_peaks;
-    
-    nidm_clusters(clust_key) = containers.Map(clust_keys, clust_values);
+    nidm_clusters(i).Peaks = nidm_peaks;
 end
 
-nidm_inference('Clusters') = nidm_clusters;
-
-nidm_inferences([contrast_names{:}]) = nidm_inference;
+nidm_inference.Clusters = nidm_clusters;
 
 if ~conj
-    nidm_json('Inferences') = nidm_inferences;
+    nidm_json.Inferences = nidm_inference;
 else
-    nidm_json('ConjunctionInferences') = nidm_inferences;    
+    nidm_json.ConjunctionInferences = nidm_inference;    
 end
 
 [nidmfile, prov] = spm_nidmresults(nidm_json, SPM.swd);
