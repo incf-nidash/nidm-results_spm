@@ -55,7 +55,6 @@ if nargin < 4
     opts = struct;
 end
 
-nidm_json = struct();
 
 %-Options
 %==========================================================================
@@ -92,7 +91,6 @@ switch opts.space
     otherwise
         error('Unknown reference space.');
 end
-nidm_json.CoordinateSpace_inWorldCoordinateSystem = coordsys;
 
 %-Data modality
 %--------------------------------------------------------------------------
@@ -152,27 +150,20 @@ catch
     end
 end
 
+
 %==========================================================================
-%-Populate output directory
+%-Create NIDM minimal structure and temporary exported files
 %==========================================================================
 if ~exist(SPM.swd,'dir'), SPM.swd = pwd; end
-
-temp_img = {}; % TODO % create a temp directory to store intermediate files
-
-%-Design Matrix values
-%--------------------------------------------------------------------------
-nidm_json.DesignMatrix_value = SPM.xX.xKXs.X;
-nidm_json.DesignMatrix_regressorNames = SPM.xX.name;
+outdir = tempname(SPM.swd);
+sts    = mkdir(outdir);
+if ~sts, error('Cannot create directory "%s".',outdir); end
 
 %-Maximum Intensity Projection image (as png)
 %--------------------------------------------------------------------------
-nidm_json.CoordinateSpace_voxelUnits = units;
-
-files.mip = fullfile(SPM.swd,'MaximumIntensityProjection.png');
+files.mip = fullfile(outdir,'MaximumIntensityProjection.png');
 MIP       = spm_mip(xSPM.Z,xSPM.XYZmm,xSPM.M,units);
 imwrite(MIP,gray(64),files.mip,'png');
-
-temp_img{end+1} = files.mip;
 
 %-Beta images (as NIfTI)
 %--------------------------------------------------------------------------
@@ -189,25 +180,22 @@ for i=1:numel(xSPM.Ic)
     if xSPM.STAT == 'T'
         files.con{i} = fullfile(xSPM.swd,SPM.xCon(xSPM.Ic(i)).Vcon.fname);
         
-        files.conse{i} = fullfile(xSPM.swd,['ContrastStandardError' postfix '.nii' gz]);
+        files.conse{i} = fullfile(outdir,['ContrastStandardError' postfix '.nii' gz]);
         Vc = SPM.xCon(xSPM.Ic(i)).c' * SPM.xX.Bcov * SPM.xCon(xSPM.Ic(i)).c;
-        img2nii(fullfile(xSPM.swd,SPM.VResMS.fname), files.conse{i}, struct('fcn',@(x) sqrt(x*Vc)));
-        temp_img{end+1} = files.conse{i};
+        img2nii(fullfile(SPM.swd,SPM.VResMS.fname), files.conse{i}, struct('fcn',@(x) sqrt(x*Vc)));
     elseif xSPM.STAT == 'F'
-        files.effms{i} = fullfile(xSPM.swd,['ContrastExplainedMeanSquare' postfix '.nii' gz]);
+        files.effms{i} = fullfile(outdir,['ContrastExplainedMeanSquare' postfix '.nii' gz]);
         eidf = SPM.xCon(xSPM.Ic(i)).eidf;
-        img2nii(fullfile(xSPM.swd,SPM.xCon(xSPM.Ic(i)).Vcon.fname), files.effms{i}, struct('fcn',@(x) x/eidf));
-        temp_img{end+1} = files.effms{i};
+        img2nii(fullfile(SPM.swd,SPM.xCon(xSPM.Ic(i)).Vcon.fname), files.effms{i}, struct('fcn',@(x) x/eidf));
     end
 end
 
 %-Thresholded SPM{.} image (as NIfTI)
 %--------------------------------------------------------------------------
-files.tspm = fullfile(xSPM.swd,['ExcursionSet.nii' gz]);
+files.tspm = fullfile(outdir,['ExcursionSet.nii' gz]);
 if ~isempty(gz), files.tspm = spm_file(files.tspm,'ext',''); end
 spm_write_filtered(xSPM.Z,xSPM.XYZ,xSPM.DIM,xSPM.M,'',files.tspm);
 if ~isempty(gz), gzip(files.tspm); spm_unlink(files.tspm); files.tspm = [files.tspm gz]; end
-temp_img{end+1} = files.tspm;
 
 %-Residual Mean Squares image (as NIfTI)
 %--------------------------------------------------------------------------
@@ -223,7 +211,7 @@ files.mask = fullfile(xSPM.swd,SPM.VM.fname);
 
 %-Grand mean image (as NIfTI)
 %--------------------------------------------------------------------------
-files.grandmean = fullfile(xSPM.swd,'GrandMean.nii');
+files.grandmean = fullfile(outdir,'GrandMean.nii');
 
 sf  = mean(SPM.xX.xKXs.X,1);
 Vb  = SPM.Vbeta;
@@ -239,14 +227,11 @@ Vgm = spm_create_vol(Vgm);
 Vgm.pinfo(1,1) = spm_add(Vb,Vgm);
 Vgm = spm_create_vol(Vgm);
 if ~isempty(gz), gzip(files.grandmean); spm_unlink(files.grandmean); files.grandmean = [files.grandmean gz]; end
-temp_img{end+1} = files.grandmean;
 
 %-Explicit mask image (as NIfTI)
 %--------------------------------------------------------------------------
 if ~isempty(SPM.xM.VM)
-    files.emask = fullfile(xSPM.swd,['CustomMask.nii' gz]);
-    temp_img{end+1} = files.emask;
-    
+    files.emask = fullfile(outdir,['CustomMask.nii' gz]);    
     if isempty(spm_file(SPM.xM.VM.fname,'path'))
         Vem = fullfile(xSPM.swd,SPM.xM.VM.fname);
     else
@@ -259,8 +244,7 @@ end
 
 %-Clusters n-ary image (as NIfTI)
 %--------------------------------------------------------------------------
-files.clust = fullfile(xSPM.swd,['ClusterLabels.nii' gz]);
-temp_img{end+1} = files.clust;
+files.clust = fullfile(outdir,['ClusterLabels.nii' gz]);
 if ~isempty(gz), files.clust = spm_file(files.clust,'ext',''); end
 Z   = spm_clusters(xSPM.XYZ);
 idx = find(~cellfun(@isempty,{TabDat.dat{:,5}}));
@@ -281,8 +265,7 @@ if ~isempty(gz), gzip(files.clust); spm_unlink(files.clust); files.clust = [file
 %-Display mask images (as NIfTI)
 %--------------------------------------------------------------------------
 for i=1:numel(xSPM.Im)
-    files.dmask{i} = fullfile(xSPM.swd,[sprintf('DisplayMask_%04d.nii',i) gz]);
-    temp_img{end+1} = files.dmask{i};
+    files.dmask{i} = fullfile(outdir,[sprintf('DisplayMask_%04d.nii',i) gz]);
     if isnumeric(xSPM.Im)
         um = spm_u(xSPM.pm,[SPM.xCon(xSPM.Im(i)).eidf,SPM.xX.erdf],...
             SPM.xCon(xSPM.Im(i)).STAT);
@@ -321,23 +304,30 @@ files.searchspace = fullfile(xSPM.swd,SPM.VM.fname);
 %-                          D A T A   M O D E L
 %==========================================================================
 
+NIDM = struct();
+
 %-Provenance
 %--------------------------------------------------------------------------
 [V,R] = spm('Ver');
 
-nidm_json.NIDMResultsExporter_type = 'spm_results_nidm';
-nidm_json.NIDMResultsExporter_softwareVersion = [V(4:end) '.' char(regexp(SVNrev,'\$Rev: (\w.*?) \$','tokens','once'))];
-nidm_json.NIDMResults_version = NIDMversion;
+NIDM.NIDMResultsExporter_type = 'spm_results_nidm';
+NIDM.NIDMResultsExporter_softwareVersion = [V(4:end) '.' char(regexp(SVNrev,'\$Rev: (\w.*?) \$','tokens','once'))];
+NIDM.NIDMResults_version = NIDMversion;
 
 %-Agent: SPM
 %--------------------------------------------------------------------------
-nidm_json.NeuroimagingAnalysisSoftware_type = 'src_SPM';
-nidm_json.NeuroimagingAnalysisSoftware_label = 'SPM';
-nidm_json.NeuroimagingAnalysisSoftware_softwareVersion = [V(4:end) '.' R];
+NIDM.NeuroimagingAnalysisSoftware_type = 'src_SPM';
+NIDM.NeuroimagingAnalysisSoftware_label = 'SPM';
+NIDM.NeuroimagingAnalysisSoftware_softwareVersion = [V(4:end) '.' R];
+
+%-Entity: Coordinate Space
+%--------------------------------------------------------------------------
+NIDM.CoordinateSpace_inWorldCoordinateSystem = coordsys;
+NIDM.CoordinateSpace_voxelUnits = units;
 
 %-Agent: Scanner
 %--------------------------------------------------------------------------
-nidm_json.Imaginginstrument_type = ImagingInstrument;
+NIDM.Imaginginstrument_type = ImagingInstrument;
 
 %-Agent: Person
 %--------------------------------------------------------------------------
@@ -345,46 +335,47 @@ if ~isequal(groups.N,1)
     %-Agent: Group
     %----------------------------------------------------------------------
     for i=1:numel(groups.N)
-        nidm_json.Groups(i).studygrouppopulation_groupName = groups.name{i};
-        nidm_json.Groups(i).studygrouppopulation_numberOfSubjects = groups.N(i);
+        NIDM.Groups(i).studygrouppopulation_groupName = groups.name{i};
+        NIDM.Groups(i).studygrouppopulation_numberOfSubjects = groups.N(i);
     end
 end
 
 %-Entity: Image Data
 %--------------------------------------------------------------------------
 if isfield(SPM,'Sess')
-    nidm_json.Data_grandMeanScaling = true;
-    nidm_json.Data_targetIntensity = SPM.xGX.GM;
+    NIDM.Data_grandMeanScaling = true;
+    NIDM.Data_targetIntensity = SPM.xGX.GM;
 else
-    nidm_json.Data_grandMeanScaling = false;
+    NIDM.Data_grandMeanScaling = false;
 end
 if ~isempty(MRIProtocol)
-    nidm_json.Data_hasMRIProtocol = MRIProtocol;
-end
-
-%-Entity: Drift Model
-%--------------------------------------------------------------------------
-if isfield(SPM,'Sess') && isfield(SPM.xX,'K')
-    nidm_json.DesignMatrix_hasDriftModel = 'spm_DiscreteCosineTransformbasisDriftModel';
-    nidm_json.DesignMatrix_SPMsDriftCutoffPeriod = SPM.xX.K(1).HParam;
+    NIDM.Data_hasMRIProtocol = MRIProtocol;
 end
 
 %-Entity: Design Matrix
 %--------------------------------------------------------------------------
+NIDM.DesignMatrix_value = SPM.xX.xKXs.X;
+NIDM.DesignMatrix_regressorNames = SPM.xX.name;
+
+if isfield(SPM,'Sess') && isfield(SPM.xX,'K')
+    NIDM.DesignMatrix_hasDriftModel = 'spm_DiscreteCosineTransformbasisDriftModel';
+    NIDM.DesignMatrix_SPMsDriftCutoffPeriod = SPM.xX.K(1).HParam;
+end
+
 if isfield(SPM,'xBF')
     switch SPM.xBF.name
         case 'hrf'
-            nidm_json.DesignMatrix_hasHRFBasis = {'spm_SPMsCanonicalHRF'};
+            NIDM.DesignMatrix_hasHRFBasis = {'spm_SPMsCanonicalHRF'};
         case 'hrf (with time derivative)'
-            nidm_json.DesignMatrix_hasHRFBasis = {'spm_SPMsCanonicalHRF', 'spm_SPMsTemporalDerivative'};
+            NIDM.DesignMatrix_hasHRFBasis = {'spm_SPMsCanonicalHRF', 'spm_SPMsTemporalDerivative'};
         case 'hrf (with time and dispersion derivatives)'
-            nidm_json.DesignMatrix_hasHRFBasis = {'spm_SPMsCanonicalHRF', 'spm_SPMsTemporalDerivative', 'spm_SPMsDispersionDerivative'};
+            NIDM.DesignMatrix_hasHRFBasis = {'spm_SPMsCanonicalHRF', 'spm_SPMsTemporalDerivative', 'spm_SPMsDispersionDerivative'};
         case 'Finite Impulse Response'
-            nidm_json.DesignMatrix_hasHRFBasis = {'nidm_FiniteImpulseResponseBasisSet'};
+            NIDM.DesignMatrix_hasHRFBasis = {'nidm_FiniteImpulseResponseBasisSet'};
         case 'Fourier set'
-            nidm_json.DesignMatrix_hasHRFBasis = {'nidm_FourierBasisSet'};
+            NIDM.DesignMatrix_hasHRFBasis = {'nidm_FourierBasisSet'};
         case 'Gamma functions'
-            nidm_json.DesignMatrix_hasHRFBasis = {'nidm_GammaBasisSet'};
+            NIDM.DesignMatrix_hasHRFBasis = {'nidm_GammaBasisSet'};
         case {'Fourier set (Hanning)'}
             warning('Not implemented "%s".',SPM.xBF.name);
         otherwise
@@ -395,64 +386,64 @@ end
 %-Entity: Explicit Mask
 %--------------------------------------------------------------------------
 if ~isempty(SPM.xM.VM)
-    nidm_json.CustomMap_atLocation = files.emask;
+    NIDM.CustomMap_atLocation = files.emask;
 end
 
 %-Entity: Error Model
 %--------------------------------------------------------------------------
 if isfield(SPM.xVi,'form')
     if strcmp(SPM.xVi.form,'i.i.d')
-        nidm_json.ErrorModel_errorVarianceHomogeneous = true;
-        nidm_json.ErrorModel_hasErrorDependence = 'nidm_IndependentError';
-        nidm_json.ModelParameterEstimation_withEstimationMethod = 'obo_ordinaryleastsquaresestimation';
+        NIDM.ErrorModel_errorVarianceHomogeneous = true;
+        NIDM.ErrorModel_hasErrorDependence = 'nidm_IndependentError';
+        NIDM.ModelParameterEstimation_withEstimationMethod = 'obo_ordinaryleastsquaresestimation';
     else
-        nidm_json.ErrorModel_errorVarianceHomogeneous = true;
-        nidm_json.ErrorModel_hasErrorDependence = 'obo_Toeplitzcovariancestructure';
-        nidm_json.ErrorModel_dependenceMapWiseDependence = 'nidm_ConstantParameter';
-        nidm_json.ErrorModel_varianceMapWiseDependence = 'nidm_IndependentParameter';
-        nidm_json.ModelParameterEstimation_withEstimationMethod = 'obo_generalizedleastsquaresestimation';
+        NIDM.ErrorModel_errorVarianceHomogeneous = true;
+        NIDM.ErrorModel_hasErrorDependence = 'obo_Toeplitzcovariancestructure';
+        NIDM.ErrorModel_dependenceMapWiseDependence = 'nidm_ConstantParameter';
+        NIDM.ErrorModel_varianceMapWiseDependence = 'nidm_IndependentParameter';
+        NIDM.ModelParameterEstimation_withEstimationMethod = 'obo_generalizedleastsquaresestimation';
     end
 else
     if ~isfield(SPM.xVi,'Vi') || numel(SPM.xVi.Vi) == 1 % assume it's identity
-        nidm_json.ErrorModel_errorVarianceHomogeneous = true;
-        nidm_json.ErrorModel_hasErrorDependence = 'nidm_IndependentError';
-        nidm_json.ErrorModel_varianceMapWiseDependence = 'nidm_IndependentParameter';
-        nidm_json.ModelParameterEstimation_withEstimationMethod = 'obo_ordinaryleastsquaresestimation';
+        NIDM.ErrorModel_errorVarianceHomogeneous = true;
+        NIDM.ErrorModel_hasErrorDependence = 'nidm_IndependentError';
+        NIDM.ErrorModel_varianceMapWiseDependence = 'nidm_IndependentParameter';
+        NIDM.ModelParameterEstimation_withEstimationMethod = 'obo_ordinaryleastsquaresestimation';
     else
-        nidm_json.ErrorModel_errorVarianceHomogeneous = false;
-        nidm_json.ErrorModel_hasErrorDependence = 'obo_unstructuredcovariancestructure';
-        nidm_json.ErrorModel_dependenceMapWiseDependence = 'nidm_ConstantParameter';
-        nidm_json.ErrorModel_varianceMapWiseDependence = 'nidm_IndependentParameter';
-        nidm_json.ModelParameterEstimation_withEstimationMethod = 'obo_generalizedleastsquaresestimation';
+        NIDM.ErrorModel_errorVarianceHomogeneous = false;
+        NIDM.ErrorModel_hasErrorDependence = 'obo_unstructuredcovariancestructure';
+        NIDM.ErrorModel_dependenceMapWiseDependence = 'nidm_ConstantParameter';
+        NIDM.ErrorModel_varianceMapWiseDependence = 'nidm_IndependentParameter';
+        NIDM.ModelParameterEstimation_withEstimationMethod = 'obo_generalizedleastsquaresestimation';
     end
 end
 
-nidm_json.ErrorModel_hasErrorDistribution = 'obo_normaldistribution';
+NIDM.ErrorModel_hasErrorDistribution = 'obo_normaldistribution';
 
 %-Activity: Model Parameters Estimation
 %==========================================================================
 
 %-Entity: Mask Map
 %--------------------------------------------------------------------------
-nidm_json.MaskMap_atLocation = uri(spm_file(files.mask,'cpath'));
+NIDM.MaskMap_atLocation = uri(spm_file(files.mask,'cpath'));
 
 %-Entity: Grand Mean Map
 %--------------------------------------------------------------------------
-nidm_json.GrandMeanMap_atLocation = uri(spm_file(files.grandmean,'cpath'));
+NIDM.GrandMeanMap_atLocation = uri(spm_file(files.grandmean,'cpath'));
 
 %-Entity: Parameter Estimate (Beta) Maps
 %--------------------------------------------------------------------------
 for i=1:numel(SPM.Vbeta)
-    nidm_json.ParameterEstimateMaps{i} = uri(files.beta{i});
+    NIDM.ParameterEstimateMaps{i} = uri(files.beta{i});
 end
 
 %-Entity: ResMS Map
 %--------------------------------------------------------------------------
-nidm_json.ResidualMeanSquaresMap_atLocation = uri(spm_file(files.resms,'cpath'));
+NIDM.ResidualMeanSquaresMap_atLocation = uri(spm_file(files.resms,'cpath'));
 
 %-Entity: RPV Map
 %--------------------------------------------------------------------------
-nidm_json.ReselsPerVoxelMap_atLocation = uri(spm_file(files.rpv,'cpath'));
+NIDM.ReselsPerVoxelMap_atLocation = uri(spm_file(files.rpv,'cpath'));
 
 %-Activity: Contrast Estimation
 %==========================================================================
@@ -465,7 +456,7 @@ for c=1:numel(xSPM.Ic)
     con_name = nidm_esc(SPM.xCon(xSPM.Ic(c)).name);
     contrast_names{c} = con_name;
     if xSPM.STAT == 'T'
-        nidm_json.Contrasts(c) = struct(...
+        NIDM.Contrasts(c) = struct(...
             'StatisticMap_contrastName', con_name, ...
             'contrastweightmatrix_value', SPM.xCon(xSPM.Ic(c)).c', ...
             'StatisticMap_statisticType', ['obo_' STAT 'statistic'], ...
@@ -475,7 +466,7 @@ for c=1:numel(xSPM.Ic)
             'ContrastStandardErrorMap_atLocation', uri(spm_file(files.conse{c},'cpath')));
     end
     if xSPM.STAT == 'F'
-        nidm_json.Contrasts(c) = struct(...
+        NIDM.Contrasts(c) = struct(...
             'StatisticMap_contrastName', con_name, ...
             'obo_contrastweightmatrix/prov:value', SPM.xCon(xSPM.Ic(c)).c', ...
             'StatisticMap_statisticType', ['obo_' STAT 'statistic'], ...
@@ -574,11 +565,11 @@ maxNumberOfPeaksPerCluster = spm_get_defaults('stats.results.volume.nbmax');
 minDistanceBetweenPeaks = spm_get_defaults('stats.results.volume.distmin');
 clusterConnectivityCriterion = 18; % see spm_max.m
 
-nidm_json.ClusterDefinitionCriteria_hasConnectivityCriterion = ...
+NIDM.ClusterDefinitionCriteria_hasConnectivityCriterion = ...
     sprintf('nidm_voxel%dconnected',clusterConnectivityCriterion);
-nidm_json.PeakDefinitionCriteria_minDistanceBetweenPeaks = ...
+NIDM.PeakDefinitionCriteria_minDistanceBetweenPeaks = ...
     minDistanceBetweenPeaks;
-nidm_json.PeakDefinitionCriteria_maxNumberOfPeaksPerCluster = ...
+NIDM.PeakDefinitionCriteria_maxNumberOfPeaksPerCluster = ...
     maxNumberOfPeaksPerCluster;
     
 %-Activity: Inference
@@ -687,40 +678,18 @@ end
 nidm_inference.Clusters = nidm_clusters;
 
 if ~conj
-    nidm_json.Inferences = nidm_inference;
+    NIDM.Inferences = nidm_inference;
 else
-    nidm_json.ConjunctionInferences = nidm_inference;    
+    NIDM.ConjunctionInferences = nidm_inference;    
 end
 
-[nidmfile, prov] = spm_nidmresults(nidm_json, SPM.swd);
+%-Create the NIDM zip archive
+%==========================================================================
+[nidmfile, prov] = spm_nidmresults(NIDM, SPM.swd);
 
-for i = 1:numel(temp_img)
-    spm_unlink(temp_img{i});
-end
-
-% % pp.bundle(idResults,p);
-% 
-% %==========================================================================
-% %-                  P R O V   S E R I A L I Z A T I O N
-% %==========================================================================
-% %serialize(pp,fullfile(outdir,'nidm.provn'));
-% serialize(pp,fullfile(outdir,'nidm.ttl'));
-% try, serialize(pp,fullfile(outdir,'nidm.jsonld')); end
-% %serialize(pp,fullfile(outdir,'nidm.json'));
-% %serialize(pp,fullfile(outdir,'nidm.pdf'));
-% 
-% i = 1;
-% while true
-%     nidmfile = fullfile(SPM.swd,sprintf('spm_%04d.nidm.zip',i));
-%     if spm_existfile(nidmfile), i = i + 1; else break; end
-% end
-% f = zip(nidmfile,'*',outdir);
-% for i=1:numel(f)
-%     spm_unlink(fullfile(outdir,f{i}));
-% end
-% rmdir(outdir);
-% 
-% prov = pp;
+%-And delete files from the temporary directory
+%--------------------------------------------------------------------------
+rmdir(outdir,'s');
 
 
 %==========================================================================
