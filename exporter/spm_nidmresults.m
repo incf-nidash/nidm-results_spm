@@ -1181,6 +1181,7 @@ clusters = inference.Clusters;
 
 % idx = find(~cellfun(@isempty,{TabDat.dat{:,5}}));
 % idCluster = cell(1,numel(idx));
+k = 1;
 for i=1:numel(clusters)
     if iscell(clusters)
         this_cluster = clusters{i};
@@ -1232,7 +1233,7 @@ for i=1:numel(clusters)
             my_peak = peaks(j);
         end
         
-        iPeak  = num2str(j, '%04d'); %peak_names{j};
+        iPeak  = num2str(k, '%04d'); %peak_names{j};
         idPeak = getid(['niiri:peak_' iPeak],isHumanReadable);
         idCoordinate = getid(['niiri:coordinate_' iPeak],isHumanReadable);
         
@@ -1270,6 +1271,7 @@ for i=1:numel(clusters)
             });
 
         p.wasDerivedFrom(idPeak, idCluster{i});
+        k = k + 1;
     end
 end
 
