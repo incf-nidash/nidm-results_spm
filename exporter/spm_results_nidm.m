@@ -584,7 +584,7 @@ nidm_json.PeakDefinitionCriteria_maxNumberOfPeaksPerCluster = ...
 %-Activity: Inference
 %==========================================================================
 nidm_inference.Inference_hasAlternativeHypothesis = 'nidm_OneTailedTest';
-nidm_inference.nidm_contrastName = contrast_names;
+nidm_inference.StatisticMap_contrastName = contrast_names;
 if numel(xSPM.Ic) == 1
     conj = false;
 else
