@@ -425,25 +425,25 @@ NIDM.ErrorModel_hasErrorDistribution = 'obo_normaldistribution';
 
 %-Entity: Mask Map
 %--------------------------------------------------------------------------
-NIDM.MaskMap_atLocation = uri(spm_file(files.mask,'cpath'));
+NIDM.MaskMap_atLocation = spm_file(files.mask,'cpath');
 
 %-Entity: Grand Mean Map
 %--------------------------------------------------------------------------
-NIDM.GrandMeanMap_atLocation = uri(spm_file(files.grandmean,'cpath'));
+NIDM.GrandMeanMap_atLocation = spm_file(files.grandmean,'cpath');
 
 %-Entity: Parameter Estimate (Beta) Maps
 %--------------------------------------------------------------------------
 for i=1:numel(SPM.Vbeta)
-    NIDM.ParameterEstimateMaps{i} = uri(files.beta{i});
+    NIDM.ParameterEstimateMaps{i} = files.beta{i};
 end
 
 %-Entity: ResMS Map
 %--------------------------------------------------------------------------
-NIDM.ResidualMeanSquaresMap_atLocation = uri(spm_file(files.resms,'cpath'));
+NIDM.ResidualMeanSquaresMap_atLocation = spm_file(files.resms,'cpath');
 
 %-Entity: RPV Map
 %--------------------------------------------------------------------------
-NIDM.ReselsPerVoxelMap_atLocation = uri(spm_file(files.rpv,'cpath'));
+NIDM.ReselsPerVoxelMap_atLocation = spm_file(files.rpv,'cpath');
 
 %-Activity: Contrast Estimation
 %==========================================================================
@@ -461,9 +461,9 @@ for c=1:numel(xSPM.Ic)
             'contrastweightmatrix_value', SPM.xCon(xSPM.Ic(c)).c', ...
             'StatisticMap_statisticType', ['obo_' STAT 'statistic'], ...
             'StatisticMap_errorDegreesOfFreedom', xSPM.df(2), ...
-            'StatisticMap_atLocation', uri(spm_file(files.spm{c},'cpath')), ...
-            'ContrastMap_atLocation', uri(spm_file(files.con{c},'cpath')), ...
-            'ContrastStandardErrorMap_atLocation', uri(spm_file(files.conse{c},'cpath')));
+            'StatisticMap_atLocation', spm_file(files.spm{c},'cpath'), ...
+            'ContrastMap_atLocation', spm_file(files.con{c},'cpath'), ...
+            'ContrastStandardErrorMap_atLocation', spm_file(files.conse{c},'cpath'));
     end
     if xSPM.STAT == 'F'
         NIDM.Contrasts(c) = struct(...
@@ -472,8 +472,8 @@ for c=1:numel(xSPM.Ic)
             'StatisticMap_statisticType', ['obo_' STAT 'statistic'], ...
             'StatisticMap_errorDegreesOfFreedom', xSPM.df(2), ...
             'StatisticMap_effectDegreesOfFreedom', xSPM.df(1), ...
-            'StatisticMap_atLocation', uri(spm_file(files.spm{c},'cpath')), ...
-            'ContrastExplainedMeanSquareMap_atLocation', uri(uri(spm_file(files.effms{c},'cpath'))));
+            'StatisticMap_atLocation', spm_file(files.spm{c},'cpath'), ...
+            'ContrastExplainedMeanSquareMap_atLocation', spm_file(files.effms{c},'cpath'));
     end
 end
 
@@ -591,18 +591,18 @@ end
 %-Entity: Display Mask Maps
 %--------------------------------------------------------------------------
 for i=1:numel(files.dmask)
-    nidm_inference.DisplayMaskMap_atLocation = uri(spm_file(files.dmask{i},'cpath'));
+    nidm_inference.DisplayMaskMap_atLocation = spm_file(files.dmask{i},'cpath');
 end
 
 %-Entity: SVC Mask Map
 %--------------------------------------------------------------------------
 if ~isempty(files.svcmask)
-    nidm_inference.SubVolumeMap_atLocation = uri(spm_file(files.svcmask,'cpath'));    
+    nidm_inference.SubVolumeMap_atLocation = spm_file(files.svcmask,'cpath');    
 end
 
 %-Entity: Search Space
 %--------------------------------------------------------------------------
-nidm_inference.SearchSpaceMaskMap_atLocation = uri(spm_file(files.searchspace,'cpath'));
+nidm_inference.SearchSpaceMaskMap_atLocation = spm_file(files.searchspace,'cpath');
 nidm_inference.SearchSpaceMaskMap_searchVolumeInVoxels = xSPM.S;    
 nidm_inference.SearchSpaceMaskMap_searchVolumeInUnits = TabDat.ftr{8,2}(1);    
 nidm_inference.SearchSpaceMaskMap_reselSizeInVoxels = TabDat.ftr{9,2}(end);
@@ -634,12 +634,12 @@ else
     pc = NaN;
 end
 
-nidm_inference.ExcursionSetMap_atLocation = uri(spm_file(files.tspm,'cpath'));
+nidm_inference.ExcursionSetMap_atLocation = spm_file(files.tspm,'cpath');
 nidm_inference.ExcursionSetMap_numberOfSupraThresholdClusters = c;
 nidm_inference.ExcursionSetMap_pValue = pc;
 
-nidm_inference.ClusterLabelsMap_atLocation = uri(spm_file(files.clust,'cpath'));
-nidm_inference.ExcursionSetMap_hasMaximumIntensityProjection = uri(spm_file(files.mip,'cpath'));
+nidm_inference.ClusterLabelsMap_atLocation = spm_file(files.clust,'cpath');
+nidm_inference.ExcursionSetMap_hasMaximumIntensityProjection = spm_file(files.mip,'cpath');
 
 
 %-Entity: Peaks & Clusters
@@ -700,20 +700,6 @@ function v = xsdfloat(v)
 if numel(v) == 1 && isinf(v) && v > 0, v = 'INF';  end
 if numel(v) == 1 && isinf(v) && v < 0, v = '-INF'; end
 if numel(v) == 1 && isnan(v),          v = 'NaN';  end
-
-
-%==========================================================================
-% function u = uri(u)
-%==========================================================================
-function u = uri(u)
-%-File URI scheme
-%if ispc, s='/'; else s=''; end
-%u = ['file://' s strrep(spm_file(u,'cpath'),'\','/')];
-e = ' ';
-for i=1:length(e)
-    u = strrep(u,e(i),['%' dec2hex(e(i))]);
-end
-u = spm_file(u,'filename');
 
 
 %==========================================================================

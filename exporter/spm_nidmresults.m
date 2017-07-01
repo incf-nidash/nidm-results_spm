@@ -15,7 +15,7 @@ function [nidmfile, prov] = spm_nidmresults(nidm_json, direc)
 % PROV-DM: The PROV Data Model:
 %   http://www.w3.org/TR/prov-dm/
 %__________________________________________________________________________
-% Copyright (C) 2013-2016 Wellcome Trust Centre for Neuroimaging
+% Copyright (C) 2013-2017 Wellcome Trust Centre for Neuroimaging
 
 % Guillaume Flandin, Camille Maumet
 % $Id: spm_results_nidm.m 6903 2016-10-12 11:36:41Z guillaume $
@@ -27,7 +27,7 @@ function [nidmfile, prov] = spm_nidmresults(nidm_json, direc)
 %--------------------------------------------------------------------------
 gz           = '.gz';                        %-Compressed NIfTI {'.gz', ''}
 
-jsonwrite('nidm_minimal.json', nidm_json, struct('indent','    ', 'escape', false));
+spm_jsonwrite('nidm_minimal.json', nidm_json, struct('indent','    '));
 
 %==========================================================================
 %-Populate output directory
@@ -78,7 +78,7 @@ end
 if isfield(inference, 'ExcursionSetMap_hasMaximumIntensityProjection')
     has_mip = true;
     files.mip_orig = inference.ExcursionSetMap_hasMaximumIntensityProjection;
-    files.mip = fullfile(outdir, files.mip_orig);
+    files.mip = spm_file(files.mip_orig, 'path', outdir);
     copyfile(files.mip_orig, files.mip)
 else
     has_mip = false;
@@ -140,7 +140,7 @@ for i=1:numel(contrasts)
     else
         info = struct('STAT', stat);
     end
-    img2nii(fullfile(pwd, stat_map{i}), files.spm{i}, info);
+    img2nii(spm_file(stat_map{i},'cpath'), files.spm{i}, info);
     
     if stat == 'T'
         files.con{i} = fullfile(outdir,['Contrast' postfix '.nii' gz]);
@@ -1405,29 +1405,6 @@ else
         gzip(nii);
         spm_unlink(nii);
     end
-end
-
-
-%==========================================================================
-% function make_ROI(fname,DIM,M,xY)
-%==========================================================================
-function make_ROI(fname,DIM,M,xY)
-gz = strcmp(spm_file(fname,'ext'),'gz');
-if gz, fname = spm_file(fname,'ext',''); end
-R = struct(...
-    'fname',  fname,...
-    'dim',    DIM,...
-    'dt',     [spm_type('uint8'), spm_platform('bigend')],...
-    'mat',    M,...
-    'pinfo',  [1,0,0]',...
-    'descrip','ROI');
-Q    = zeros(DIM);
-[xY, XYZmm, j] = spm_ROI(xY, struct('dim',DIM,'mat',M));
-Q(j) = 1;
-R    = spm_write_vol(R,Q);
-if gz
-    gzip(R.fname);
-    spm_unlink(R.fname);
 end
 
 
