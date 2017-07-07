@@ -46,8 +46,8 @@ files.desimg = fullfile(outdir,'DesignMatrix.png');
 
 xX.nKX       = spm_DesMtx('sca',DesMtxValue,reg_names);
 DesMtx       = (xX.nKX + 1)*32;
-ml           = floor(size(DesMtx,1)/size(DesMtx,2));
-DesMtx       = reshape(repmat(DesMtx,ml,1),size(DesMtx,1),[]);
+% ml           = floor(size(DesMtx,1)/size(DesMtx,2));
+% DesMtx       = reshape(repmat(DesMtx,ml,1),size(DesMtx,1),[]);
 imwrite(DesMtx,gray(64),files.desimg,'png');
 files.descsv = fullfile(outdir,'DesignMatrix.csv');
 csvwrite(files.descsv,DesMtxValue);
