@@ -35,7 +35,7 @@ outdir       = tempname(outdir);
 sts          = mkdir(outdir);
 if ~sts, error('Cannot create directory "%s".',outdir); end
 
-jsonwrite('nidm_minimal.json', NIDM, struct('indent',blanks(4)));
+% jsonwrite('nidm_minimal.json', NIDM, struct('indent',blanks(4)));
 
 %-Design Matrix image (as png and csv)
 %--------------------------------------------------------------------------
