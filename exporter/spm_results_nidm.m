@@ -316,7 +316,7 @@ NIDM.NIDMResults_version = NIDMversion;
 
 %-Agent: SPM
 %--------------------------------------------------------------------------
-NIDM.NeuroimagingAnalysisSoftware_type = 'src_SPM';
+NIDM.NeuroimagingAnalysisSoftware_type = 'scr_SPM';
 NIDM.NeuroimagingAnalysisSoftware_label = 'SPM';
 NIDM.NeuroimagingAnalysisSoftware_softwareVersion = [V(4:end) '.' R];
 
