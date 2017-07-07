@@ -103,22 +103,22 @@ if ~isfield(opts,'mod')
 end
 switch opts.mod
     case 'AMRI'
-        ImagingInstrument = 'nlx_Magneticresonanceimagingscanner';
-        MRIProtocol       = 'nlx_AnatomicalMRIprotocol';    
+        ImagingInstrument = 'nlx_MagneticResonanceImagingScanner';
+        MRIProtocol       = 'nlx_AnatomicalMRIProtocol';    
     case 'FMRI'
-        ImagingInstrument = 'nlx_Magneticresonanceimagingscanner';
-        MRIProtocol       = 'nlx_FunctionalMRIprotocol';
+        ImagingInstrument = 'nlx_MagneticResonanceImagingScanner';
+        MRIProtocol       = 'nlx_FunctionalMRIProtocol';
     case 'DMRI'
-        ImagingInstrument = 'nlx_Magneticresonanceimagingscanner';
-        MRIProtocol       = 'nlx_DiffusionMRIprotocol';
+        ImagingInstrument = 'nlx_MagneticResonanceImagingScanner';
+        MRIProtocol       = 'nlx_DiffusionWeightedImagingProtocol';
     case 'PET'
-        ImagingInstrument = 'nlx_Positronemissiontomographyscanner';
+        ImagingInstrument = 'nlx_PositronEmissionTomographyScanner';
     case 'SPECT'
-        ImagingInstrument = 'nlx_Singlephotonemissioncomputedtomographyscanner';
+        ImagingInstrument = 'nlx_SinglePhotonEmissionComputedTomographyScanner';
     case 'EEG'
-        ImagingInstrument = 'nlx_Electroencephalographymachine';
+        ImagingInstrument = 'nlx_ElectroencephalographyMachine';
     case 'MEG'
-        ImagingInstrument = 'nlx_Magnetoencephalographymachine';
+        ImagingInstrument = 'nlx_MagnetoencephalographyMachine';
     otherwise
         error('Unknown modality.');
 end
@@ -327,7 +327,7 @@ NIDM.CoordinateSpace_voxelUnits = units;
 
 %-Agent: Scanner
 %--------------------------------------------------------------------------
-NIDM.Imaginginstrument_type = ImagingInstrument;
+NIDM.ImagingInstrument_type = ImagingInstrument;
 
 %-Agent: Person
 %--------------------------------------------------------------------------
@@ -335,8 +335,8 @@ if ~isequal(groups.N,1)
     %-Agent: Group
     %----------------------------------------------------------------------
     for i=1:numel(groups.N)
-        NIDM.Groups(i).studygrouppopulation_groupName = groups.name{i};
-        NIDM.Groups(i).studygrouppopulation_numberOfSubjects = groups.N(i);
+        NIDM.Groups(i).StudyGroupPopulation_groupName = groups.name{i};
+        NIDM.Groups(i).StudyGroupPopulation_numberOfSubjects = groups.N(i);
     end
 end
 
@@ -395,30 +395,30 @@ if isfield(SPM.xVi,'form')
     if strcmp(SPM.xVi.form,'i.i.d')
         NIDM.ErrorModel_errorVarianceHomogeneous = true;
         NIDM.ErrorModel_hasErrorDependence = 'nidm_IndependentError';
-        NIDM.ModelParameterEstimation_withEstimationMethod = 'obo_ordinaryleastsquaresestimation';
+        NIDM.ModelParameterEstimation_withEstimationMethod = 'obo_OrdinaryLeastSquaresEstimation';
     else
         NIDM.ErrorModel_errorVarianceHomogeneous = true;
-        NIDM.ErrorModel_hasErrorDependence = 'obo_Toeplitzcovariancestructure';
+        NIDM.ErrorModel_hasErrorDependence = 'obo_ToeplitzCovarianceStructure';
         NIDM.ErrorModel_dependenceMapWiseDependence = 'nidm_ConstantParameter';
         NIDM.ErrorModel_varianceMapWiseDependence = 'nidm_IndependentParameter';
-        NIDM.ModelParameterEstimation_withEstimationMethod = 'obo_generalizedleastsquaresestimation';
+        NIDM.ModelParameterEstimation_withEstimationMethod = 'obo_GeneralizedLeastSquaresEstimation';
     end
 else
     if ~isfield(SPM.xVi,'Vi') || numel(SPM.xVi.Vi) == 1 % assume it's identity
         NIDM.ErrorModel_errorVarianceHomogeneous = true;
         NIDM.ErrorModel_hasErrorDependence = 'nidm_IndependentError';
         NIDM.ErrorModel_varianceMapWiseDependence = 'nidm_IndependentParameter';
-        NIDM.ModelParameterEstimation_withEstimationMethod = 'obo_ordinaryleastsquaresestimation';
+        NIDM.ModelParameterEstimation_withEstimationMethod = 'obo_OrdinaryLeastSquaresEstimation';
     else
         NIDM.ErrorModel_errorVarianceHomogeneous = false;
-        NIDM.ErrorModel_hasErrorDependence = 'obo_unstructuredcovariancestructure';
+        NIDM.ErrorModel_hasErrorDependence = 'obo_UnstructuredCovarianceStructure';
         NIDM.ErrorModel_dependenceMapWiseDependence = 'nidm_ConstantParameter';
         NIDM.ErrorModel_varianceMapWiseDependence = 'nidm_IndependentParameter';
-        NIDM.ModelParameterEstimation_withEstimationMethod = 'obo_generalizedleastsquaresestimation';
+        NIDM.ModelParameterEstimation_withEstimationMethod = 'obo_GeneralizedLeastSquaresEstimation';
     end
 end
 
-NIDM.ErrorModel_hasErrorDistribution = 'obo_normaldistribution';
+NIDM.ErrorModel_hasErrorDistribution = 'obo_NormalDistribution';
 
 %-Activity: Model Parameters Estimation
 %==========================================================================
@@ -458,8 +458,8 @@ for c=1:numel(xSPM.Ic)
     if xSPM.STAT == 'T'
         NIDM.Contrasts(c) = struct(...
             'StatisticMap_contrastName', con_name, ...
-            'contrastweightmatrix_value', SPM.xCon(xSPM.Ic(c)).c', ...
-            'StatisticMap_statisticType', ['obo_' STAT 'statistic'], ...
+            'ContrastWeightMatrix_value', SPM.xCon(xSPM.Ic(c)).c', ...
+            'StatisticMap_statisticType', ['obo_' upper(STAT) 'Statistic'], ...
             'StatisticMap_errorDegreesOfFreedom', xSPM.df(2), ...
             'StatisticMap_atLocation', spm_file(files.spm{c},'cpath'), ...
             'ContrastMap_atLocation', spm_file(files.con{c},'cpath'), ...
@@ -468,8 +468,8 @@ for c=1:numel(xSPM.Ic)
     if xSPM.STAT == 'F'
         NIDM.Contrasts(c) = struct(...
             'StatisticMap_contrastName', con_name, ...
-            'contrastweightmatrix_value', SPM.xCon(xSPM.Ic(c)).c', ...
-            'StatisticMap_statisticType', ['obo_' STAT 'statistic'], ...
+            'ContrastWeightMatrix_value', SPM.xCon(xSPM.Ic(c)).c', ...
+            'StatisticMap_statisticType', ['obo_' upper(STAT) 'Statistic'], ...
             'StatisticMap_errorDegreesOfFreedom', xSPM.df(2), ...
             'StatisticMap_effectDegreesOfFreedom', xSPM.df(1), ...
             'StatisticMap_atLocation', spm_file(files.spm{c},'cpath'), ...
@@ -479,13 +479,13 @@ end
 
 %-Entity: Height Threshold
 %--------------------------------------------------------------------------
-thresh(1).type  = 'obo_statistic';
+thresh(1).type  = 'obo_Statistic';
 thresh(1).label = 'Height Threshold';
 thresh(1).value = xSPM.u; % TabDat.ftr{1,2}(1)
 thresh(2).type  = 'nidm_PValueUncorrected';
 thresh(2).label = 'Height Threshold';
 thresh(2).value = TabDat.ftr{1,2}(2);
-thresh(3).type  = 'obo_FWERadjustedpvalue';
+thresh(3).type  = 'obo_FWERAdjustedPValue';
 thresh(3).label = 'Height Threshold';
 thresh(3).value = TabDat.ftr{1,2}(3);
 td = regexp(xSPM.thresDesc,'p\D?(?<u>[\.\d]+) \((?<thresDesc>\S+)\)','names');
@@ -511,7 +511,7 @@ else
             % (to avoid possible floating point approximations)            
             %thresh(2).value = str2double(td.u);
         case 'FDR'
-            thresh(3).type  = 'obo_qvalue';
+            thresh(3).type  = 'obo_QValue';
             thresh(3).label = 'Height Threshold';
             thresh(3).value = str2double(td.u);
             thresh_order = [3 1 2]; % FDR
@@ -541,13 +541,13 @@ end
 nidm_inference = struct();
 nidm_inference.HeightThreshold_type = thresh(1).type;
 nidm_inference.HeightThreshold_value = thresh(1).value;
-nidm_inference.ExtentThreshold_type = 'obo_statistic';
+nidm_inference.ExtentThreshold_type = 'obo_Statistic';
 nidm_inference.ExtentThreshold_clusterSizeInVoxels = TabDat.ftr{2,2}(1);
 nidm_inference.ExtentThreshold_clusterSizeInResels = TabDat.ftr{2,2}(1)*V2R;
 
 nidm_height_equivthresh = struct();
 nidm_extent_equivthresh = struct();
-ex_equiv_types = {'obo_FWERadjustedpvalue', 'nidm_PValueUncorrected'};
+ex_equiv_types = {'obo_FWERAdjustedPValue', 'nidm_PValueUncorrected'};
 for i = 2:3
     nidm_height_equivthresh(i-1).HeightThreshold_type =  thresh(i).type;
     nidm_height_equivthresh(i-1).HeightThreshold_value = thresh(i).value;
