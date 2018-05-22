@@ -80,14 +80,32 @@ class TestSPMResultsDataModel(unittest.TestCase, TestResultDataModel):
         # Creating a single ground truth graph (by merging all included ground
         # truths)
         gt = Graph()
+        run_with_octave = False
+        first = True
+
+        if 'full_example' in ttl:
+            gt_oct = Graph()
+        else:
+            gt_oct = None
+
         for gt_file in ex.gt_ttl_files:
             logging.info("Ground truth ttl: " + gt_file)
 
             # RDF obtained by the ground truth export
             gt.parse(gt_file, format='turtle')
 
+        # TODO: Workaround to deal with differences in shasum for gzipped files
+        # between octave and Matlab and across hosts
+        # -- Ignore shasums --
+        CRYPT_RDFLIB = rdflib.Namespace(
+            "http://id.loc.gov/vocabulary/preservation/cryptographicHashFunctions#")
+        gt.remove((None, CRYPT_RDFLIB.sha512, None))
+        ex.exact_comparison = True
+        # End of TODO
+
         self.compare_full_graphs(gt, ex.graph, ex.owl,
                                  ex.exact_comparison, False)
+
         ex_gt += self.my_execption
 
         if ex_gt:

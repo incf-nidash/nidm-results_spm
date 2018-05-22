@@ -20,7 +20,8 @@ function nidm_export_all(path_to, out_path, aspacks)
         % FIXME: examples ignored so far
         if ~strcmp(dname, 'spm_explicit_mask') && ...
            ~strcmp(dname, 'spm_2_t_test') && ...
-           ~strcmp(dname, 'spm_covariate')
+           ~strcmp(dname, 'spm_covariate') && ...
+           ~strcmp(dname, 'spm_contrast_mask')
             json_file = fullfile(path_to, dname, 'config.json');
             
             if exist(json_file, 'file') ~= 2

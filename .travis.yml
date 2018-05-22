@@ -1,16 +1,44 @@
 language: python
 # use container-based infrastructure
-sudo: false
+sudo: required
+services:
+  - docker
+cache:
+  pip: true
+  directories:
+   - test/data/nidmresults-examples
+  timeout: 1000
 python:
   - "3.5"
+bundler_args: --retry 9
 # command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
 install: 
  - pip install --upgrade setuptools
+  # Install nidmresults from source in GitHub repo
+ - pip install --upgrade --no-deps git+https://github.com/cmaumet/nidmresults.git
  - pip install -r requirements.txt
- # command to run tests, e.g. python setup.py test
+ - cd test/data/nidmresults-examples
+ - ls
+ # Is this is not a git repo them clone nidmresults-examples
+ - if ! [ -d .git ]; then git lfs clone https://github.com/incf-nidash/nidmresults-examples.git .; fi
+ - ls
+ - git pull
+ - ls
+ - cd ../../..
+ - ls
 script:  
-- python TestSPMResultDataModel.py
-- cat debug.log
-before_install: 
+ - docker version
+ # Run docker snapshot of dev octave (until 4.4 is released)
+ - did=$(docker run -it -d --rm -v `pwd`/test:/test -v `pwd`/exporter:/exporter cmaumet/octave-spm)
+ # Run tests in Octave
+ - docker exec -it $did octave --no-window-system --eval "addpath('/exporter'); addpath('/test'); nidm_export_all('/test/data/nidmresults-examples', '/test/spmexport')"
+ # Run tests
+ - python test/TestSPMResultDataModel.py
+ - cat debug.log
+before_install:
+ # Update docker version
+ - sudo apt-get update
+ - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
  - git config --global user.name "TravisCI"
  - git config --global user.email "travis@dummy.com"
+ - docker pull cmaumet/octave-spm

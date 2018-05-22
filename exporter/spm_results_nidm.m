@@ -23,7 +23,7 @@ function [nidmfile, prov] = spm_results_nidm(SPM,xSPM,TabDat,opts)
 % Copyright (C) 2013-2017 Wellcome Trust Centre for Neuroimaging
 
 % Guillaume Flandin
-% $Id: spm_results_nidm.m 6903 2016-10-12 11:36:41Z guillaume $
+% $Id: spm_results_nidm.m 7057 2017-04-13 16:45:49Z guillaume $
 
 
 %-Get input parameters, interactively if needed
@@ -61,9 +61,9 @@ end
 
 %-General options
 %--------------------------------------------------------------------------
-gz          = '.gz';                         %-Compressed NIfTI {'.gz', ''}
-NIDMversion = '1.3.0';
-SVNrev      = '$Rev: 6903 $';
+gz           = '.gz';                        %-Compressed NIfTI {'.gz', ''}
+NIDMversion  = '1.3.0';
+SVNrev       = '$Rev: 7057 $';
 
 %-Reference space
 %--------------------------------------------------------------------------
@@ -309,16 +309,18 @@ NIDM = struct();
 %-Provenance
 %--------------------------------------------------------------------------
 [V,R] = spm('Ver');
+V = V(4:end);
 
 NIDM.NIDMResultsExporter_type = 'spm_results_nidm';
-NIDM.NIDMResultsExporter_softwareVersion = [V(4:end) '.' char(regexp(SVNrev,'\$Rev: (\w.*?) \$','tokens','once'))];
+NIDM.NIDMResultsExporter_softwareVersion = [V '.' char(regexp(SVNrev,'\$Rev: (\w.*?) \$','tokens','once'))];
 NIDM.NIDMResults_version = NIDMversion;
 
 %-Agent: SPM
 %--------------------------------------------------------------------------
 NIDM.NeuroimagingAnalysisSoftware_type = 'scr_SPM';
 NIDM.NeuroimagingAnalysisSoftware_label = 'SPM';
-NIDM.NeuroimagingAnalysisSoftware_softwareVersion = [V(4:end) '.' R];
+NIDM.NeuroimagingAnalysisSoftware_softwareVersion = [V '.' R];
+
 
 %-Entity: Coordinate Space
 %--------------------------------------------------------------------------
@@ -480,50 +482,76 @@ end
 %-Entity: Height Threshold
 %--------------------------------------------------------------------------
 thresh(1).type  = 'obo_Statistic';
-thresh(1).label = 'Height Threshold';
 thresh(1).value = xSPM.u; % TabDat.ftr{1,2}(1)
+thresh(1).label = sprintf('Height Threshold: %s=%f)',xSPM.STAT,thresh(1).value);
 thresh(2).type  = 'nidm_PValueUncorrected';
-thresh(2).label = 'Height Threshold';
 thresh(2).value = TabDat.ftr{1,2}(2);
+thresh(2).label = sprintf('Height Threshold: p<%f (unc.)',thresh(2).value);
 thresh(3).type  = 'obo_FWERAdjustedPValue';
-thresh(3).label = 'Height Threshold';
 thresh(3).value = TabDat.ftr{1,2}(3);
+thresh(3).label = sprintf('Height Threshold: p<%f (FWE)',thresh(3).value);
+
 td = regexp(xSPM.thresDesc,'p\D?(?<u>[\.\d]+) \((?<thresDesc>\S+)\)','names');
 if isempty(td)
     td = regexp(xSPM.thresDesc,'\w=(?<u>[\.\d]+)','names');
     if ~isempty(td)
-        thresh_order = 1:3; % Statistic
-        thresh_desc  = sprintf(': %s=%f)',xSPM.STAT,xSPM.u);
+        thresh_order   = 1:3; % Statistic
     else
         warning('Unkwnown threshold type.');
-        thresh_order = 1:3; % unknown
-        thresh_desc  = '';
+        thresh_order   = 1:3; % unknown
     end
 else
     switch td.thresDesc
         case 'FWE'
-            thresh_order = [3 1 2]; % FWE
-            thresh_desc  = sprintf(': p<%f (FWE)',TabDat.ftr{1,2}(3));
+            thresh_order   = [3 1 2]; % FWE
+            thresh(1).label =  sprintf('Height Threshold');
+            thresh(2).label =  sprintf('Height Threshold');
         case 'unc.'
-            thresh_order = [2 1 3]; % uncorrected
-            thresh_desc  = sprintf(': p<%f (unc.)',TabDat.ftr{1,2}(2));
+            thresh_order   = [2 1 3]; % uncorrected
             % Set uncorrected p-value threshold to the user-defined value
             % (to avoid possible floating point approximations)            
             %thresh(2).value = str2double(td.u);
+            thresh(2).label = sprintf('Height Threshold: p<%s (unc.)',td.u);
+            thresh(1).label =  sprintf('Height Threshold');
+            thresh(3).label =  sprintf('Height Threshold');
         case 'FDR'
             thresh(3).type  = 'obo_QValue';
-            thresh(3).label = 'Height Threshold';
             thresh(3).value = str2double(td.u);
-            thresh_order = [3 1 2]; % FDR
-            thresh_desc  = sprintf(': p<%s (FDR)',td.u);
+            thresh(3).label =  sprintf(':Height Threshold: p<%s (FDR)',td.u);
+            thresh_order    = [3 1 2]; % FDR
+            thresh(1).label =  sprintf('Height Threshold');
+            thresh(2).label =  sprintf('Height Threshold');
         otherwise
             warning('Unkwnown threshold type.');
             thresh_order = 1:3; % unknown
-            thresh_desc  = '';
     end
 end
 thresh = thresh(thresh_order);
-thresh(1).label = [thresh(1).label thresh_desc];
+
+idHeightThresh = getid('niiri:height_threshold_id',isHumanReadable);
+idHeightThresh2 = getid('niiri:height_threshold_id_2',isHumanReadable);
+idHeightThresh3 = getid('niiri:height_threshold_id_3',isHumanReadable);
+p.entity(idHeightThresh,{...
+    'prov:type',nidm_conv('nidm_HeightThreshold',p),...
+    'prov:type',thresh(1).type,...
+    'prov:label',{nidm_esc(thresh(1).label),'xsd:string'},...
+    'prov:value',{thresh(1).value,'xsd:float'},...
+    nidm_conv('nidm_equivalentThreshold',p),idHeightThresh2,...
+    nidm_conv('nidm_equivalentThreshold',p),idHeightThresh3,...
+    });
+p.entity(idHeightThresh2,{...
+    'prov:type',nidm_conv('nidm_HeightThreshold',p),...
+    'prov:type',thresh(2).type,...
+    'prov:label',{nidm_esc(thresh(2).label),'xsd:string'},...
+    'prov:value',{thresh(2).value,'xsd:float'},...
+    });
+
+p.entity(idHeightThresh3,{...
+    'prov:type',nidm_conv('nidm_HeightThreshold',p),...
+    'prov:type',thresh(3).type,...
+    'prov:label',{nidm_esc(thresh(3).label),'xsd:string'},...
+    'prov:value',{thresh(3).value,'xsd:float'},...
+    });
 
 %-Entity: Extent Threshold
 %--------------------------------------------------------------------------
@@ -687,9 +715,9 @@ end
 %==========================================================================
 [nidmfile, prov] = spm_nidmresults(NIDM, SPM.swd);
 
-%-And delete files from the temporary directory
-%--------------------------------------------------------------------------
-rmdir(outdir,'s');
+% %-And delete files from the temporary directory
+% %--------------------------------------------------------------------------
+% rmdir(outdir,'s');
 
 
 %==========================================================================
