@@ -88,6 +88,13 @@ end
 %--------------------------------------------------------------------------
 files.beta_orig = NIDM.ParameterEstimateMaps;
 regressor_names = NIDM.DesignMatrix_regressorNames;
+
+if numel(regressor_names) ~= numel(files.beta_orig)
+    disp(regressor_names)
+    disp(files.beta_orig)
+    error('Should have as many regressor names as beta maps')
+end
+
 for i=1:numel(regressor_names)
     files.beta{i} = fullfile(outdir,[sprintf('ParameterEstimate_%04d',i) '.nii' gz]);
     img2nii(files.beta_orig{i}, files.beta{i});
