@@ -1283,7 +1283,7 @@ serialize(pp,fullfile(outdir,'nidm.jsonld'));
 i = 1;
 while true
     nidmfile = fullfile(spm_fileparts(outdir),sprintf('%s_%04d.nidm.zip',lower(soft_label),i));
-    if spm_existfile(nidmfile), i = i + 1; else break; end
+    if spm_existfile(nidmfile), i = i + 1; else, break; end
 end
 zip(nidmfile,'*',outdir);
 rmdir(outdir,'s');
@@ -1312,7 +1312,7 @@ function u = uri(u)
 %u = ['file://' s strrep(spm_file(u,'cpath'),'\','/')];
 e = ' ';
 for i=1:length(e)
-    u = strrep(u,e(i),['%' dec2hex(e(i))]);
+    u = strrep(u,e(i),['%' dec2hex(double(e(i)))]);
 end
 u = spm_file(u,'filename');
 
@@ -1331,14 +1331,18 @@ if numel(v) == 1 && isnan(v),          v = 'NaN';  end
 % function checksum = sha512sum(file)
 %==========================================================================
 function checksum = sha512sum(file)
-md   = java.security.MessageDigest.getInstance('SHA-512');
-file = spm_file(file,'cpath');
-fid  = fopen(file,'rb');
-if fid == -1, error('Cannot open "%s".',file); end
-md.update(fread(fid,Inf,'*uint8'));
-fclose(fid);
-checksum = typecast(md.digest,'uint8');
-checksum = lower(reshape(dec2hex(checksum)',1,[]));
+if strcmp(spm_check_version,'matlab')
+    md   = java.security.MessageDigest.getInstance('SHA-512');
+    file = spm_file(file,'cpath');
+    fid  = fopen(file,'rb');
+    if fid == -1, error('Cannot open "%s".',file); end
+    md.update(fread(fid,Inf,'*uint8'));
+    fclose(fid);
+    checksum = typecast(md.digest,'uint8');
+    checksum = lower(reshape(dec2hex(checksum)',1,[]));
+else
+    checksum = hash('sha512', fileread(spm_file(file,'cpath')));
+end
 
 
 %==========================================================================
@@ -1346,17 +1350,20 @@ checksum = lower(reshape(dec2hex(checksum)',1,[]));
 %==========================================================================
 function checksum = md5sum(data)
 if ~nargin
-    data = char(java.util.UUID.randomUUID);
+    data = char(javaMethod('randomUUID','java.util.UUID'));
 end
-md   = java.security.MessageDigest.getInstance('MD5');
-if ischar(data)
-    md.update(uint8(data));
+if strcmp(spm_check_version,'matlab')
+    md = java.security.MessageDigest.getInstance('MD5');
+    if ischar(data)
+        md.update(uint8(data));
+    else
+        md.update(typecast(data,'uint8'));
+    end
+    checksum = typecast(md.digest,'uint8');
+    checksum = lower(reshape(dec2hex(checksum)',1,[]));
 else
-    md.update(typecast(data,'uint8'));
+    checksum = hash('md5', typecast(data,'char'));
 end
-checksum = typecast(md.digest,'uint8');
-checksum = lower(reshape(dec2hex(checksum)',1,[]));
-
 
 %==========================================================================
 % function img2nii(img,nii,xSPM)
