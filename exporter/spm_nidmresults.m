@@ -197,6 +197,11 @@ img2nii(gm_map, files.grandmean);
 gunzip(files.grandmean)
 gunzip(files.mask)
 grandMeanMedian = spm_summarise(strrep(files.grandmean, gz, ''),strrep(files.mask, gz, ''),@median);
+% In octave the gzipped version is not kept when using gunzip
+if ~strcmp(spm_check_version,'matlab')
+    gzip(strrep(files.grandmean, '.gz', ''))
+    gzip(strrep(files.mask, '.gz', ''))
+end
 spm_unlink(strrep(files.grandmean, '.gz', ''));
 spm_unlink(strrep(files.mask, '.gz', ''));
 
@@ -332,6 +337,9 @@ p.agent(idSoftware,{...
 units = NIDM.CoordinateSpace_voxelUnits;
 gunzip(files.tspm)
 excset_img = nifti(strrep(files.tspm, '.gz', ''));
+if ~strcmp(spm_check_version,'matlab')
+    gzip(strrep(files.tspm, '.gz', ''))
+end
 spm_unlink(strrep(files.tspm, '.gz', ''))
 id_data_coordspace = coordspace(p,excset_img.mat,excset_img.dat.dim,units,coordsys,1);
 
@@ -971,10 +979,18 @@ if isfield(inference, 'DisplayMaskMap_atLocation')
     for i=1:numel(files.dmask)
         gunzip(files.dmask{i});
         V = spm_vol(strrep(files.dmask{i}, '.gz', ''));
+        % In octave the gzipped version is not kept when using gunzip
+        if ~strcmp(spm_check_version,'matlab')
+            gzip(strrep(files.dmask{i}, '.gz', ''))
+        end
         spm_unlink(strrep(files.dmask{i}, '.gz', ''))
         
         gunzip(files.tspm);
         V_ex = spm_vol(strrep(files.tspm, '.gz', ''));
+        % In octave the gzipped version is not kept when using gunzip
+        if ~strcmp(spm_check_version,'matlab')
+            gzip(strrep(files.tspm, '.gz', ''))
+        end
         spm_unlink(strrep(files.tspm, '.gz', ''))
         
         if ~spm_check_orientations(struct('dim',{V_ex.dim,V.dim},...
