@@ -15,14 +15,15 @@ function nidm_export(data_path, out_path, aspacks)
         dname = subdirs(i).name;
         if strncmpi(dname,'nidm',4)
             disp(['Removing ' dname])
-            rmdir(dname,'s')
+            rmdir(dname,'s');
+            
         end
         
         nidm_zips = cellstr(strvcat(spm_select('FPList', study_dir, '\.nidm\.zip$')));
         for j = 1:numel(nidm_zips)
             if ~isempty(nidm_zips{j})
                 disp(['Deleting ' nidm_zips{j}])
-                delete(nidm_zips{j})
+                delete(nidm_zips{j});
             end
         end
     end
@@ -82,7 +83,7 @@ function nidm_export(data_path, out_path, aspacks)
     end
     
     if ~aspacks
-        unzip('spm_0001.nidm.zip', 'nidm')
+        unzip('spm_0001.nidm.zip', 'nidm');
     end
     
     if ~isempty(out_path)
@@ -91,10 +92,10 @@ function nidm_export(data_path, out_path, aspacks)
         target_dir = fullfile(out_path, ['ex_' test_name]);
         if isdir(target_dir)
             disp(['Removing ' target_dir])
-            rmdir(target_dir,'s')
+            rmdir(target_dir,'s');
         end
         if ~aspacks
-            movefile('nidm', target_dir)
+            movefile('nidm', target_dir);
         else
             target_file = [target_dir '.nidm.zip'];
             movefile('spm_0001.nidm.zip', target_file);
@@ -143,9 +144,9 @@ function nidm_export(data_path, out_path, aspacks)
                 target_gt_dir = fullfile(out_path, 'ground_truth', version, spm_file(gt,'path'));
                 if isdir(target_gt_dir)
                     disp(['Removing ' target_gt_dir])
-                    rmdir(target_gt_dir,'s')
+                    rmdir(target_gt_dir,'s');
                 end
-                mkdir(target_gt_dir)
+                mkdir(target_gt_dir);
                 copyfile(gt_file, target_gt_dir);
             end
         end

@@ -61,7 +61,7 @@ if isfield(NIDM, 'Inferences')
     if numel(inferences) > 1
         warning('Exporter assumes only one inference is reported.')
     end
-    
+
     inference  = inferences(1);
 else
     inferences = NIDM.ConjunctionInferences;
@@ -69,7 +69,7 @@ else
     if numel(inferences) > 1
         warning('Exporter assumes only one inference is reported.')
     end
-    
+
     inference  = inferences(1);
     
     con_name   = inference.StatisticMap_contrastName;
@@ -79,7 +79,7 @@ if isfield(inference, 'ExcursionSetMap_hasMaximumIntensityProjection')
     has_mip = true;
     files.mip_orig = inference.ExcursionSetMap_hasMaximumIntensityProjection;
     files.mip = spm_file(files.mip_orig, 'path', outdir);
-    copyfile(files.mip_orig, files.mip)
+    copyfile(files.mip_orig, files.mip);
 else
     has_mip = false;
 end
@@ -132,7 +132,7 @@ for i=1:numel(contrasts)
             stat = 'U';
         end
     end
-    
+
     files.spm{i} = fullfile(outdir,[stat 'Statistic' postfix '.nii' gz]);
     stat_map{i}  = con.StatisticMap_atLocation;
     dof = con.StatisticMap_errorDegreesOfFreedom;
@@ -155,7 +155,6 @@ for i=1:numel(contrasts)
         dof = con.StatisticMap_errorDegreesOfFreedom;
         info = struct('STAT', 'con');
         img2nii(files.con_orig{i}, files.con{i}, info);
-        
         files.conse{i} = fullfile(outdir,['ContrastStandardError' postfix '.nii' gz]);
         files.conse_orig{i} = con.ContrastStandardErrorMap_atLocation;
         img2nii(files.conse_orig{i}, files.conse{i});
@@ -201,13 +200,13 @@ img2nii(files.mask_orig, files.mask);
 files.grandmean = fullfile(outdir, ['GrandMean.nii' gz]);
 gm_map = NIDM.GrandMeanMap_atLocation;
 img2nii(gm_map, files.grandmean);
-gunzip(files.grandmean)
-gunzip(files.mask)
+gunzip(files.grandmean);
+gunzip(files.mask);
 grandMeanMedian = spm_summarise(strrep(files.grandmean, gz, ''),strrep(files.mask, gz, ''),@median);
 % In octave the gzipped version is not kept when using gunzip
 if ~strcmp(spm_check_version,'matlab')
-    gzip(strrep(files.grandmean, '.gz', ''))
-    gzip(strrep(files.mask, '.gz', ''))
+    gzip(strrep(files.grandmean, '.gz', ''));
+    gzip(strrep(files.mask, '.gz', ''));
 end
 spm_unlink(strrep(files.grandmean, '.gz', ''));
 spm_unlink(strrep(files.mask, '.gz', ''));
@@ -342,10 +341,10 @@ p.agent(idSoftware,{...
 %-Entity: Coordinate Space
 %--------------------------------------------------------------------------
 units = NIDM.CoordinateSpace_voxelUnits;
-gunzip(files.tspm)
+gunzip(files.tspm);
 excset_img = nifti(strrep(files.tspm, '.gz', ''));
 if ~strcmp(spm_check_version,'matlab')
-    gzip(strrep(files.tspm, '.gz', ''))
+    gzip(strrep(files.tspm, '.gz', ''));
 end
 spm_unlink(strrep(files.tspm, '.gz', ''))
 id_data_coordspace = coordspace(p,excset_img.mat,excset_img.dat.dim,units,coordsys,1);
@@ -988,7 +987,7 @@ if isfield(inference, 'DisplayMaskMap_atLocation')
         V = spm_vol(strrep(files.dmask{i}, '.gz', ''));
         % In octave the gzipped version is not kept when using gunzip
         if ~strcmp(spm_check_version,'matlab')
-            gzip(strrep(files.dmask{i}, '.gz', ''))
+            gzip(strrep(files.dmask{i}, '.gz', ''));
         end
         spm_unlink(strrep(files.dmask{i}, '.gz', ''))
         
@@ -996,7 +995,7 @@ if isfield(inference, 'DisplayMaskMap_atLocation')
         V_ex = spm_vol(strrep(files.tspm, '.gz', ''));
         % In octave the gzipped version is not kept when using gunzip
         if ~strcmp(spm_check_version,'matlab')
-            gzip(strrep(files.tspm, '.gz', ''))
+            gzip(strrep(files.tspm, '.gz', ''));
         end
         spm_unlink(strrep(files.tspm, '.gz', ''))
         
@@ -1395,7 +1394,7 @@ function img2nii(img,nii,xSPM)
 
 % If input and output are nii.gz then use a simple copy
 if strcmp(spm_file(img, 'ext'), 'gz') && strcmp(spm_file(nii, 'ext'), 'gz')
-    copyfile(img, nii)
+    copyfile(img, nii);
 else
     if nargin == 2, xSPM = struct; end
     if ~isfield(xSPM,'STAT'), xSPM.STAT = ''; end
