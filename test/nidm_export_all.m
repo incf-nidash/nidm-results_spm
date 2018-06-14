@@ -34,7 +34,7 @@ function nidm_export_all(path_to, out_path, aspacks)
 %             if strcmp(lower(cfg.software), 'spm')
             if strncmpi(dname,'spm_',4)
                 disp(dname)
-                nidm_export(fullfile(path_to, dname), out_path, aspacks)
+                nidm_export(fullfile(path_to, dname), out_path, aspacks);
             end
 %             end
         end
