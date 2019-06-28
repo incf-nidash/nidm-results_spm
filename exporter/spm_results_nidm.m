@@ -342,7 +342,7 @@ pp.add_namespace('nidm','http://purl.org/nidash/nidm#');
 pp.add_namespace('niiri','http://iri.nidash.org/');
 pp.add_namespace('spm','http://purl.org/nidash/spm#');
 pp.add_namespace('neurolex','http://neurolex.org/wiki/');
-pp.add_namespace('crypto','http://id.loc.gov/vocabulary/preservation/cryptographicHashFunctions#');
+pp.add_namespace('crypto','http://id.loc.gov/vocabulary/preservation/cryptographicHashFunctions/');
 pp.add_namespace('dct','http://purl.org/dc/terms/');
 pp.add_namespace('nfo','http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#');
 pp.add_namespace('dc','http://purl.org/dc/elements/1.1/');
@@ -819,23 +819,17 @@ else
     switch td.thresDesc
         case 'FWE'
             thresh_order   = [3 1 2]; % FWE
-            thresh(1).label =  sprintf('Height Threshold');
-            thresh(2).label =  sprintf('Height Threshold');
         case 'unc.'
             thresh_order   = [2 1 3]; % uncorrected
             % Set uncorrected p-value threshold to the user-defined value
             % (to avoid possible floating point approximations)            
             %thresh(2).value = str2double(td.u);
             thresh(2).label = sprintf('Height Threshold: p<%s (unc.)',td.u);
-            thresh(1).label =  sprintf('Height Threshold');
-            thresh(3).label =  sprintf('Height Threshold');
         case 'FDR'
             thresh(3).type  = nidm_conv('obo_qvalue',p);
             thresh(3).value = str2double(td.u);
             thresh(3).label =  sprintf(':Height Threshold: p<%s (FDR)',td.u);
             thresh_order    = [3 1 2]; % FDR
-            thresh(1).label =  sprintf('Height Threshold');
-            thresh(2).label =  sprintf('Height Threshold');
         otherwise
             warning('Unkwnown threshold type.');
             thresh_order = 1:3; % unknown
